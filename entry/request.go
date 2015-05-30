@@ -32,8 +32,8 @@ type VoiceRequest struct{
 	Request
 	MediaId string
 	Format	string
-	Recongnition string
-	MsgID int64
+	Recognition string
+	MsgId int64
 }
 
 type VideoRequest struct{
