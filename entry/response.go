@@ -122,11 +122,11 @@ func NewNewsResponse(from string, to string) *NewsResponse {
 }
 
 func (news *NewsResponse) Append(article *Article) error{
-	if len(news.News.Item) >= 10 {
+	if len(news.News.item) >= 10 {
 		return errors.New("entry NewsResponse: news response append exceed 10 articles already.")
 	}
 
-	news.News.Item = append(news.News.Item, article)
-	news.ArticleCount = len(news.News.Item)
+	news.News.item = append(news.News.item, article)
+	news.ArticleCount = len(news.News.item)
 	return nil
 }

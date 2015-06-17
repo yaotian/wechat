@@ -133,7 +133,7 @@ type Article struct{
 }
 
 type Articles struct{
-	Item []*Article 	`json:"articles"`
+	item []*Article 	`json:"articles"`
 }
 
 type NewsMessage struct{
@@ -151,11 +151,11 @@ func NewArticle(title, description, url, picurl string) *Article{
 }
 
 func (news *NewsMessage) Append(article *Article) error{
-	if len(news.News.Item) >= 10 {
+	if len(news.News.item) >= 10 {
 		return errors.New("entry message: news message append exceed 10 articles already.")
 	}
 
-	news.News.Item = append(news.News.Item, article)
+	news.News.item = append(news.News.item, article)
 	return nil
 }
 
