@@ -8,8 +8,8 @@ import (
 	"crypto/sha1"
 	"net/http"
 	"io/ioutil"
-	"github.com/liujianping/wechat/cache"
-	"github.com/liujianping/wechat/entry"
+	"github.com/yaotian/wechat/cache"
+	"github.com/yaotian/wechat/entry"
 )
 
 const (

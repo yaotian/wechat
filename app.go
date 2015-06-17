@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 	"errors"
-	"github.com/liujianping/wechat/entry"
+	"github.com/yaotian/wechat/entry"
 )
 
 type CallbackInterface interface {
