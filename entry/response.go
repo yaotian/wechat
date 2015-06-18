@@ -61,7 +61,18 @@ type NewsResponse struct {
 	XMLName xml.Name `xml:"xml"`
 	Response
 	ArticleCount int
-	News         Articles `xml:"Articles"`
+	News         ArticlesReponse `xml:"Articles"`
+}
+
+type ArticlesReponse struct {
+	Item []*ArticleResponse
+}
+
+type ArticleResponse struct {
+	Title       CDATAText
+	Description CDATAText
+	Url         CDATAText
+	PicUrl      CDATAText
 }
 
 func NewTextResponse(from string, to string, content string) *TextResponse {
@@ -128,7 +139,11 @@ func NewNewsResponse(from string, to string) *NewsResponse {
 	return news
 }
 
-func (news *NewsResponse) Append(article *Article) error {
+func NewNewsArticle(title, description, url, picurl string) *ArticleResponse{
+	return &ArticleResponse{Title:value2CDATA(title), Description:value2CDATA(description), Url:value2CDATA(url), PicUrl:value2CDATA(picurl)}
+}
+
+func (news *NewsResponse) Append(article *ArticleResponse) error {
 	if len(news.News.Item) >= 10 {
 		return errors.New("entry NewsResponse: news response append exceed 10 articles already.")
 	}
