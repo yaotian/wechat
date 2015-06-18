@@ -65,7 +65,7 @@ type NewsResponse struct {
 }
 
 type ArticlesReponse struct {
-	Item []*ArticleResponse
+	Item []*ArticleResponse `xml:"item"`
 }
 
 type ArticleResponse struct {
