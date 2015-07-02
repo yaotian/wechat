@@ -1,15 +1,15 @@
 package wechat
 
 import (
-	"fmt"
-	"encoding/json"
-	"sort"
 	"bytes"
 	"crypto/sha1"
-	"net/http"
-	"io/ioutil"
+	"encoding/json"
+	"fmt"
 	"github.com/yaotian/wechat/cache"
 	"github.com/yaotian/wechat/entry"
+	"io/ioutil"
+	"net/http"
+	"sort"
 )
 
 const (
@@ -18,38 +18,41 @@ const (
 )
 
 var (
-	fmt_token_url string = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s"
-	fmt_userinfo_url string = "https://api.weixin.qq.com/cgi-bin/user/info?access_token=%s&openid=%s&lang=zh_CN"
-	fmt_upload_media_url string = "http://file.api.weixin.qq.com/cgi-bin/media/upload?access_token=%s&type=%s"
+	fmt_token_url          string = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s"
+	fmt_userinfo_url       string = "https://api.weixin.qq.com/cgi-bin/user/info?access_token=%s&openid=%s&lang=zh_CN"
+	fmt_upload_media_url   string = "http://file.api.weixin.qq.com/cgi-bin/media/upload?access_token=%s&type=%s"
 	fmt_download_media_url string = "http://file.api.weixin.qq.com/cgi-bin/media/get?access_token=%s&media_id=%s"
-	fmt_sendmessage_url string = "https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=%s"
-	fmt_create_menu_url string = "https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s"
-	fmt_remove_menu_url string = "https://api.weixin.qq.com/cgi-bin/menu/delete?access_token=%s"
+	fmt_sendmessage_url    string = "https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=%s"
+	fmt_create_menu_url    string = "https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s"
+	fmt_remove_menu_url    string = "https://api.weixin.qq.com/cgi-bin/menu/delete?access_token=%s"
+
+	fmt_token_url_from_oauth string = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
 )
 
-type ApiError struct{
-	ErrCode int `json:"errcode"`
+type ApiError struct {
+	ErrCode int    `json:"errcode"`
 	ErrMsg  string `json:"errmsg"`
 }
 
-func NewApiError(code int, msg string) *ApiError{
+func NewApiError(code int, msg string) *ApiError {
 	return &ApiError{ErrCode: code, ErrMsg: msg}
 }
 
-func (e *ApiError) Error() string{
+func (e *ApiError) Error() string {
 	return e.ErrMsg
 }
 
-type TokenResponse struct{
-	Token string `json:"access_token"`
-	Expires_in int64 `json:"expires_in"`
+type TokenResponse struct {
+	Token      string `json:"access_token"`
+	Openid     string `json:"openid"`
+	Expires_in int64  `json:"expires_in"`
 }
 
-type ApiClient struct{
-	apptoken string
-	appid string
+type ApiClient struct {
+	apptoken  string
+	appid     string
 	appsecret string
-	cache cache.Cache
+	cache     cache.Cache
 }
 
 func NewApiClient(apptoken, appid, appsecret string) *ApiClient {
@@ -65,17 +68,17 @@ func (c *ApiClient) SetCache(adapter, config string) error {
 	return nil
 }
 
-func checkJSError(js []byte) error{
+func checkJSError(js []byte) error {
 	var errmsg ApiError
-    if err := json.Unmarshal(js, &errmsg); err != nil {
-    	return err
-    }
+	if err := json.Unmarshal(js, &errmsg); err != nil {
+		return err
+	}
 
-    if errmsg.ErrCode != 0 {
-    	return &errmsg
-    }
+	if errmsg.ErrCode != 0 {
+		return &errmsg
+	}
 
-    return nil
+	return nil
 }
 
 func (c *ApiClient) Signature(signature, timestamp, nonce string) bool {
@@ -84,8 +87,8 @@ func (c *ApiClient) Signature(signature, timestamp, nonce string) bool {
 	sort.Strings(strs)
 	str := ""
 
-	for _,s := range strs {
-		str += s 
+	for _, s := range strs {
+		str += s
 	}
 
 	h := sha1.New()
@@ -98,6 +101,37 @@ func (c *ApiClient) Signature(signature, timestamp, nonce string) bool {
 	return false
 }
 
+func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
+	reponse, err := http.Get(fmt.Sprintf(fmt_token_url, c.appid, c.appsecret, code))
+	if err != nil {
+		return "", "", err
+	}
+
+	defer reponse.Body.Close()
+
+	var data []byte
+	data, err = ioutil.ReadAll(reponse.Body)
+	if err != nil {
+		return "", "", err
+	}
+
+	err = checkJSError(data)
+	if err != nil {
+		return "", "", err
+	}
+
+	var tr TokenResponse
+	if err = json.Unmarshal(data, &tr); err != nil {
+		return "", "", err
+	}
+	if c.cache != nil {
+		c.cache.Put(default_token_key, tr.Token, int64(tr.Expires_in-10))
+	}
+
+	return tr.Token, tr.Openid, nil
+
+}
+
 func (c *ApiClient) GetToken() (string, error) {
 	if c.cache != nil {
 		if v := c.cache.Get(default_token_key); v != nil {
@@ -105,7 +139,7 @@ func (c *ApiClient) GetToken() (string, error) {
 			case string:
 				return t, nil
 			case []byte:
-				return string(t), nil	
+				return string(t), nil
 			default:
 				return "", fmt.Errorf("unexpected type v:", t)
 			}
@@ -113,46 +147,83 @@ func (c *ApiClient) GetToken() (string, error) {
 	}
 
 	reponse, err := http.Get(fmt.Sprintf(fmt_token_url, c.appid, c.appsecret))
-    if err != nil {
-        return "", err
-    }
+	if err != nil {
+		return "", err
+	}
 
-    defer reponse.Body.Close()
+	defer reponse.Body.Close()
 
-    var data []byte
-    data, err = ioutil.ReadAll(reponse.Body)
-    if err != nil {
-    	return "", err
-    }
+	var data []byte
+	data, err = ioutil.ReadAll(reponse.Body)
+	if err != nil {
+		return "", err
+	}
 
-    err = checkJSError(data)
-    if err != nil {
-    	return "", err
-    }
+	err = checkJSError(data)
+	if err != nil {
+		return "", err
+	}
 
-    var tr TokenResponse
-    if err = json.Unmarshal(data, &tr); err != nil {
-    	return "", err
-    }
-    if c.cache != nil {
-	    c.cache.Put(default_token_key, tr.Token, int64(tr.Expires_in - 10))   	
-    }
-	
+	var tr TokenResponse
+	if err = json.Unmarshal(data, &tr); err != nil {
+		return "", err
+	}
+	if c.cache != nil {
+		c.cache.Put(default_token_key, tr.Token, int64(tr.Expires_in-10))
+	}
+
 	return tr.Token, nil
 }
 
-func (c *ApiClient) Upload() error{
+func (c *ApiClient) Upload() error {
 	return nil
 }
 
-func (c *ApiClient) Download() error{
+func (c *ApiClient) Download() error {
 	return nil
 }
 
-func (c *ApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) error{
-	
+func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string,  subscriber *entry.Subscriber) error {
 	if c.cache != nil {
-		if v := c.cache.Get("sub_"+oid); v != nil {
+		if v := c.cache.Get("sub_" + oid); v != nil {
+			switch t := v.(type) {
+			case []byte:
+				if err := json.Unmarshal(t, subscriber); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	var reponse *http.Response
+	reponse, err := http.Get(fmt.Sprintf(fmt_userinfo_url, token, oid))
+	if err != nil {
+		return err
+	}
+
+	defer reponse.Body.Close()
+
+	data, _ := ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data)
+	if err != nil {
+		return err
+	}
+
+	if c.cache != nil {
+		c.cache.Put("sub_"+oid, data, default_cache_sec)
+	}
+	if err = json.Unmarshal(data, subscriber); err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (c *ApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) error {
+
+	if c.cache != nil {
+		if v := c.cache.Get("sub_" + oid); v != nil {
 			switch t := v.(type) {
 			case []byte:
 				if err := json.Unmarshal(t, subscriber); err != nil {
@@ -169,26 +240,26 @@ func (c *ApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) erro
 
 	var reponse *http.Response
 	reponse, err = http.Get(fmt.Sprintf(fmt_userinfo_url, token, oid))
-    if err != nil {
-        return err
-    }
-
-    defer reponse.Body.Close()
-
-    data, _ := ioutil.ReadAll(reponse.Body)
-    err = checkJSError(data)
-    if err != nil {
-    	return err
-    }
-
-    if c.cache != nil {
-    	c.cache.Put("sub_" + oid , data, default_cache_sec)
-    }
-    if err = json.Unmarshal(data, subscriber); err != nil {
+	if err != nil {
 		return err
 	}
 
-    return nil	
+	defer reponse.Body.Close()
+
+	data, _ := ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data)
+	if err != nil {
+		return err
+	}
+
+	if c.cache != nil {
+		c.cache.Put("sub_"+oid, data, default_cache_sec)
+	}
+	if err = json.Unmarshal(data, subscriber); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *ApiClient) ListSubscribers() error {
@@ -220,38 +291,38 @@ func (c *ApiClient) RemoveMenu() error {
 	}
 
 	reponse, err := http.Get(fmt.Sprintf(fmt_remove_menu_url, token))
-    if err != nil {
-        return err
-    }
-    defer reponse.Body.Close()
+	if err != nil {
+		return err
+	}
+	defer reponse.Body.Close()
 
-    data, _ := ioutil.ReadAll(reponse.Body)
-    err = checkJSError(data)
-    if err != nil {
-    	return err
-    }
+	data, _ := ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data)
+	if err != nil {
+		return err
+	}
 
-    return nil
+	return nil
 }
 
 func (c *ApiClient) Post(url string, json []byte) error {
 	reponse, err := http.Post(url, "text/json", bytes.NewBuffer(json))
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 
-    defer reponse.Body.Close()
+	defer reponse.Body.Close()
 
-    data, _ := ioutil.ReadAll(reponse.Body)
-    err = checkJSError(data)
-    if err != nil {
-    	return err
-    }
+	data, _ := ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data)
+	if err != nil {
+		return err
+	}
 
-    return nil
+	return nil
 }
 
-func (c *ApiClient) SendMessage(msg []byte) error {	
+func (c *ApiClient) SendMessage(msg []byte) error {
 	token, err := c.GetToken()
 	if err != nil {
 		return err
@@ -332,4 +403,3 @@ func (c *ApiClient) SearchGroup() error {
 func (c *ApiClient) MovetoGroup() error {
 	return nil
 }
-
