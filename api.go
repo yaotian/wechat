@@ -105,7 +105,7 @@ func (c *ApiClient) Signature(signature, timestamp, nonce string) bool {
 }
 
 func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
-	reponse, err := http.Get(fmt.Sprintf(fmt_token_url, c.fwh_appid, c.fwh_appsecret, code))
+	reponse, err := http.Get(fmt.Sprintf(fmt_token_url_from_oauth, c.fwh_appid, c.fwh_appsecret, code))
 	if err != nil {
 		return "", "", err
 	}
