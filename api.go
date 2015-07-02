@@ -207,6 +207,7 @@ func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string,  subscriber
 	defer reponse.Body.Close()
 
 	data, _ := ioutil.ReadAll(reponse.Body)
+	fmt.Print(string(data))
 	err = checkJSError(data)
 	if err != nil {
 		return err
