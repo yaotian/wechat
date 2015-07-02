@@ -52,11 +52,14 @@ type ApiClient struct {
 	apptoken  string
 	appid     string
 	appsecret string
+	fwh_apptoken  string
+	fwh_appid     string
+	fwh_appsecret string
 	cache     cache.Cache
 }
 
-func NewApiClient(apptoken, appid, appsecret string) *ApiClient {
-	return &ApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret}
+func NewApiClient(apptoken, appid, appsecret,fwh_apptoken, fwh_appid, fwh_appsecret string) *ApiClient {
+	return &ApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret,   fwh_apptoken: fwh_apptoken, fwh_appid: fwh_appid, fwh_appsecret: fwh_appsecret, }
 }
 
 func (c *ApiClient) SetCache(adapter, config string) error {
@@ -102,7 +105,7 @@ func (c *ApiClient) Signature(signature, timestamp, nonce string) bool {
 }
 
 func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
-	reponse, err := http.Get(fmt.Sprintf(fmt_token_url, c.appid, c.appsecret, code))
+	reponse, err := http.Get(fmt.Sprintf(fmt_token_url, c.fwh_appid, c.fwh_appsecret, code))
 	if err != nil {
 		return "", "", err
 	}
