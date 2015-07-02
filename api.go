@@ -27,6 +27,7 @@ var (
 	fmt_remove_menu_url    string = "https://api.weixin.qq.com/cgi-bin/menu/delete?access_token=%s"
 
 	fmt_token_url_from_oauth string = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
+	fmt_userinfo_url_from_oauth string = "https://api.weixin.qq.com/sns/userinfo?access_token=%s&openid=%s&lang=zh_CN"
 )
 
 type ApiError struct {
@@ -127,9 +128,6 @@ func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
 	if err = json.Unmarshal(data, &tr); err != nil {
 		return "", "", err
 	}
-	if c.cache != nil {
-		c.cache.Put(default_token_key, tr.Token, int64(tr.Expires_in-10))
-	}
 
 	return tr.Token, tr.Openid, nil
 
@@ -199,7 +197,7 @@ func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string,  subscriber
 	}
 
 	var reponse *http.Response
-	reponse, err := http.Get(fmt.Sprintf(fmt_userinfo_url, token, oid))
+	reponse, err := http.Get(fmt.Sprintf(fmt_userinfo_url_from_oauth, token, oid))
 	if err != nil {
 		return err
 	}
