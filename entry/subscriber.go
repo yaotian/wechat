@@ -1,5 +1,9 @@
 package entry
 
+import (
+	"strconv"
+)
+
 /*
 "subscribe": 1,
     "openid": "o6_bmjrPTlm6_2sgVt7hMZOPfL2M",
@@ -24,4 +28,17 @@ type Subscriber struct {
 	Headimgurl     string `json:"headimgurl"`
 	Subscribe_time int64  `json:"subscribe_time"`
 	Unionid        string `json:"unionid"`
+}
+
+func (this Subscriber) String() string {
+	return "Subscribe:" + strconv.Itoa(this.Subscribe) + "|\n" +
+		"OpenId:" + this.Openid + "|\n" +
+		"Nickname:" + this.Nickname + "|\n" +
+		"Sex:" + strconv.Itoa(this.Sex) + "|\n" +
+		"Language:" + this.Language + "|\n" +
+		"City:" + this.City + "|\n" +
+		"Province:" + this.Province + "|\n" +
+		"Country:" + this.Country + "|\n" +
+		"Headimgurl:" + this.Headimgurl + "|\n" +
+		"Unionid:" + this.Unionid + "|\n"
 }
