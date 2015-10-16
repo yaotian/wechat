@@ -24,6 +24,11 @@ func NewClickButton(name string, key string) *Button{
 	return &Button{Type:"click", Name:name, Key: key}	
 }
 
+func NewArticleButton(name string, mid string) *Button{
+	return &Button{Type:"view_limited", Name:name, Key: mid}	
+}
+
+
 func (btn *Button) Append(subbtn *Button) error{
 	if len(btn.Sub) >= 5 {
 		return errors.New("button: exceed max 5 sub buttons")
