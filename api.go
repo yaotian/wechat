@@ -280,9 +280,10 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 	if err != nil {
 		return err
 	}
-	Fix_CharSet("utf-8", &data)
 
-	reponse, err := http.Post(fmt.Sprintf(fmt_create_menu_url, token), "text/json", bytes.NewBufferString(string(data)))
+	re := ConvertToString(string(data),"unicode","utf-8")
+
+	reponse, err := http.Post(fmt.Sprintf(fmt_create_menu_url, token), "text/json", bytes.NewBufferString(re))
 
 	if err != nil {
 		return err
@@ -424,15 +425,12 @@ func (c *ApiClient) MovetoGroup() error {
 	return nil
 }
 
-func Fix_CharSet(charSet string, content *[]byte) {
-	if charSet != "" {
-		cd := mahonia.NewDecoder(charSet)
-		if cd == nil {
-			return
-		}
-		if _, result, err := cd.Translate(*content, true); err != nil {
-		} else {
-			*content = result
-		}
-	}
+
+func ConvertToString(src string, srcCode string, tagCode string) string {
+    srcCoder := mahonia.NewDecoder(srcCode)
+    srcResult := srcCoder.ConvertString(src)
+    tagCoder := mahonia.NewDecoder(tagCode)
+    _, cdata, _ := tagCoder.Translate([]byte(srcResult), true)
+    result := string(cdata)
+    return result
 }
