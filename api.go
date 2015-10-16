@@ -281,7 +281,7 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 		return err
 	}
 
-	re := ConvertToString(string(data),"utf-8")
+	re := ConvertToString(string(data))
 	
 	fmt.Printf(re)
 
@@ -428,9 +428,11 @@ func (c *ApiClient) MovetoGroup() error {
 }
 
 
-func ConvertToString(src string,  tagCode string) string {
+func ConvertToString(src string) string {
+	fmt.Println("src:",src)
 	tagCoder := mahonia.GetCharset("utf-8").NewDecoder()
 	_, cdata, _ := tagCoder.Translate([]byte(src), true)
     result := string(cdata)
+    fmt.Println("result:",result)
     return result
 }
