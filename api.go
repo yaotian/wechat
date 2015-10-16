@@ -10,6 +10,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sort"
+	//	"unicode/utf8"
+	"code.google.com/p/mahonia"
 )
 
 const (
@@ -26,7 +28,7 @@ var (
 	fmt_create_menu_url    string = "https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s"
 	fmt_remove_menu_url    string = "https://api.weixin.qq.com/cgi-bin/menu/delete?access_token=%s"
 
-	fmt_token_url_from_oauth string = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
+	fmt_token_url_from_oauth    string = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
 	fmt_userinfo_url_from_oauth string = "https://api.weixin.qq.com/sns/userinfo?access_token=%s&openid=%s&lang=zh_CN"
 )
 
@@ -50,17 +52,17 @@ type TokenResponse struct {
 }
 
 type ApiClient struct {
-	apptoken  string
-	appid     string
-	appsecret string
+	apptoken      string
+	appid         string
+	appsecret     string
 	fwh_apptoken  string
 	fwh_appid     string
 	fwh_appsecret string
-	cache     cache.Cache
+	cache         cache.Cache
 }
 
-func NewApiClient(apptoken, appid, appsecret,fwh_apptoken, fwh_appid, fwh_appsecret string) *ApiClient {
-	return &ApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret,   fwh_apptoken: fwh_apptoken, fwh_appid: fwh_appid, fwh_appsecret: fwh_appsecret, }
+func NewApiClient(apptoken, appid, appsecret, fwh_apptoken, fwh_appid, fwh_appsecret string) *ApiClient {
+	return &ApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret, fwh_apptoken: fwh_apptoken, fwh_appid: fwh_appid, fwh_appsecret: fwh_appsecret}
 }
 
 func (c *ApiClient) SetCache(adapter, config string) error {
@@ -184,7 +186,7 @@ func (c *ApiClient) Download() error {
 	return nil
 }
 
-func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string,  subscriber *entry.Subscriber) error {
+func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string, subscriber *entry.Subscriber) error {
 	if c.cache != nil {
 		if v := c.cache.Get("sub_" + oid); v != nil {
 			switch t := v.(type) {
@@ -278,7 +280,7 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 	if err != nil {
 		return err
 	}
-
+	Fix_CharSet("utf-8",&data)
 	return c.Post(fmt.Sprintf(fmt_create_menu_url, token), data)
 }
 
@@ -404,4 +406,17 @@ func (c *ApiClient) SearchGroup() error {
 }
 func (c *ApiClient) MovetoGroup() error {
 	return nil
+}
+
+func Fix_CharSet(charSet string, content *[]byte) {
+	if charSet != "" {
+		cd := mahonia.NewDecoder(charSet)
+		if cd == nil {
+			return
+		}
+		if _, result, err := cd.Translate(*content, true); err != nil {
+		} else {
+			*content = result
+		}
+	}
 }
