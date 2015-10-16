@@ -281,8 +281,8 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 		return err
 	}
 	Fix_CharSet("utf-8",&data)
-	var dst *bytes.Buffer
-	json.HTMLEscape(dst,data)
+	var dst bytes.Buffer
+	json.HTMLEscape(&dst,data)
 	return c.Post(fmt.Sprintf(fmt_create_menu_url, token), dst.Bytes())
 }
 
