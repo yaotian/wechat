@@ -4,32 +4,32 @@ import (
 	"errors"
 )
 
-type Button struct{
-	Type string	`json:"type,omitempty"`
-	Name string `json:"name"`
-	Key  string `json:"key,omitempty"`
-	Url  string `json:"url,omitempty"`
-	Sub []*Button `json:"sub_button,omitempty"`
+type Button struct {
+	Type    string    `json:"type,omitempty"`
+	Name    string    `json:"name"`
+	Key     string    `json:"key,omitempty"`
+	Url     string    `json:"url,omitempty"`
+	Sub     []*Button `json:"sub_button,omitempty"`
+	MediaId string    `json:"media_id,omitempty"`
 }
 
-func NewButton(name string) *Button{
-	return &Button{Name:name}
+func NewButton(name string) *Button {
+	return &Button{Name: name}
 }
 
 func NewViewButton(name, url string) *Button {
-	return &Button{Type:"view", Name:name, Url: url}
+	return &Button{Type: "view", Name: name, Url: url}
 }
 
-func NewClickButton(name string, key string) *Button{
-	return &Button{Type:"click", Name:name, Key: key}	
+func NewClickButton(name string, key string) *Button {
+	return &Button{Type: "click", Name: name, Key: key}
 }
 
-func NewArticleButton(name string, mid string) *Button{
-	return &Button{Type:"view_limited", Name:name, Key: mid}	
+func NewArticleButton(name string, mid string) *Button {
+	return &Button{Type: "view_limited", Name: name, MediaId: mid}
 }
 
-
-func (btn *Button) Append(subbtn *Button) error{
+func (btn *Button) Append(subbtn *Button) error {
 	if len(btn.Sub) >= 5 {
 		return errors.New("button: exceed max 5 sub buttons")
 	}
@@ -45,15 +45,15 @@ func (btn *Button) Append(subbtn *Button) error{
 	return nil
 }
 
-type Menu struct{
+type Menu struct {
 	Buttons []*Button `json:"button,omitempty"`
 }
 
-func NewMenu() *Menu{
+func NewMenu() *Menu {
 	return &Menu{}
 }
 
-func (menu *Menu) Add(btn *Button) error{
+func (menu *Menu) Add(btn *Button) error {
 	if len(menu.Buttons) >= 3 {
 		return errors.New("menu: can't add menu button more than 3.")
 	}
@@ -61,4 +61,3 @@ func (menu *Menu) Add(btn *Button) error{
 	menu.Buttons = append(menu.Buttons, btn)
 	return nil
 }
-
