@@ -281,7 +281,9 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 		return err
 	}
 	Fix_CharSet("utf-8",&data)
-	return c.Post(fmt.Sprintf(fmt_create_menu_url, token), data)
+	var dst *bytes.Buffer
+	json.HTMLEscape(dst,data)
+	return c.Post(fmt.Sprintf(fmt_create_menu_url, token), dst.Bytes())
 }
 
 func (c *ApiClient) GetMenu() error {
