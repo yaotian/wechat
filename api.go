@@ -281,7 +281,7 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 		return err
 	}
 
-	re := ConvertToString(string(data),"unicode","utf-8")
+	re := ConvertToString(string(data),"utf-8")
 
 	reponse, err := http.Post(fmt.Sprintf(fmt_create_menu_url, token), "text/json", bytes.NewBufferString(re))
 
@@ -426,11 +426,9 @@ func (c *ApiClient) MovetoGroup() error {
 }
 
 
-func ConvertToString(src string, srcCode string, tagCode string) string {
-    srcCoder := mahonia.NewDecoder(srcCode)
-    srcResult := srcCoder.ConvertString(src)
-    tagCoder := mahonia.NewDecoder(tagCode)
-    _, cdata, _ := tagCoder.Translate([]byte(srcResult), true)
+func ConvertToString(src string,  tagCode string) string {
+	tagCoder := mahonia.GetCharset("utf-8").NewDecoder()
+	_, cdata, _ := tagCoder.Translate([]byte(src), true)
     result := string(cdata)
     return result
 }
