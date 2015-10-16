@@ -282,6 +282,8 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 	}
 
 	re := ConvertToString(string(data),"utf-8")
+	
+	fmt.Printf(re)
 
 	reponse, err := http.Post(fmt.Sprintf(fmt_create_menu_url, token), "text/json", bytes.NewBufferString(re))
 
