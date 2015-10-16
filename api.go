@@ -280,10 +280,24 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 	if err != nil {
 		return err
 	}
-	Fix_CharSet("utf-8",&data)
-	var dst bytes.Buffer
-	json.HTMLEscape(&dst,data)
-	return c.Post(fmt.Sprintf(fmt_create_menu_url, token), dst.Bytes())
+	Fix_CharSet("utf-8", &data)
+
+	reponse, err := http.Post(fmt.Sprintf(fmt_create_menu_url, token), "text/json", bytes.NewBufferString(string(data)))
+
+	if err != nil {
+		return err
+	}
+
+	defer reponse.Body.Close()
+
+	data2, _ := ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data2)
+	if err != nil {
+		return err
+	}
+	return nil
+
+	//	return c.Post(fmt.Sprintf(fmt_create_menu_url, token), dst.Bytes())
 }
 
 func (c *ApiClient) GetMenu() error {
