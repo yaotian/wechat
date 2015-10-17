@@ -281,11 +281,11 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 		return err
 	}
 
-	re := ConvertToString(string(data))
+//	re := ConvertToString(string(data))
 	
-	fmt.Printf(re)
+//	fmt.Printf(re)
 
-	reponse, err := http.Post(fmt.Sprintf(fmt_create_menu_url, token), "text/json;charset=utf-8", bytes.NewBufferString(re))
+	reponse, err := http.Post(fmt.Sprintf(fmt_create_menu_url, token), "application/json;charset=utf-8", bytes.NewBuffer(data))
 
 	if err != nil {
 		return err
