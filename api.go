@@ -12,6 +12,7 @@ import (
 	"sort"
 	//	"unicode/utf8"
 	"code.google.com/p/mahonia"
+	"strings"
 )
 
 const (
@@ -281,11 +282,11 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 		return err
 	}
 
-//	re := ConvertToString(string(data))
+	re := strings.Replace(string(data),"\\u0026","&",-1)
 	
 //	fmt.Printf(re)
 
-	reponse, err := http.Post(fmt.Sprintf(fmt_create_menu_url, token), "application/json;charset=utf-8", bytes.NewBuffer(data))
+	reponse, err := http.Post(fmt.Sprintf(fmt_create_menu_url, token), "application/json;charset=utf-8", bytes.NewBufferString(re))
 
 	if err != nil {
 		return err
