@@ -189,7 +189,7 @@ func (c *ApiClient) Download() error {
 
 func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string, subscriber *entry.Subscriber) error {
 	if c.cache != nil {
-		if v := c.cache.Get("sub_" + oid); v != nil {
+		if v := c.cache.Get("suboauth_" + oid); v != nil {
 			switch t := v.(type) {
 			case []byte:
 				if err := json.Unmarshal(t, subscriber); err != nil {
@@ -215,7 +215,7 @@ func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string, subscriber 
 	}
 
 	if c.cache != nil {
-		c.cache.Put("sub_"+oid, data, default_cache_sec)
+		c.cache.Put("suboauth_"+oid, data, default_cache_sec)
 	}
 	if err = json.Unmarshal(data, subscriber); err != nil {
 		return err
