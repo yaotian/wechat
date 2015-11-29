@@ -5,14 +5,17 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	"github.com/yaotian/wechat/cache"
+	//	"github.com/yaotian/wechat/cache"
+	"github.com/astaxie/beego/cache"
 	"github.com/yaotian/wechat/entry"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	//	"unicode/utf8"
 	"code.google.com/p/mahonia"
+	"encoding/hex"
 	"strings"
+	"errors"
 )
 
 const (
@@ -31,6 +34,8 @@ var (
 
 	fmt_token_url_from_oauth    string = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
 	fmt_userinfo_url_from_oauth string = "https://api.weixin.qq.com/sns/userinfo?access_token=%s&openid=%s&lang=zh_CN"
+
+	fmt_jsapi_token_url string = "https://api.weixin.qq.com/cgi-bin/ticket/getticket?access_token=%s&type=jsapi"
 )
 
 type ApiError struct {
@@ -52,6 +57,11 @@ type TokenResponse struct {
 	Expires_in int64  `json:"expires_in"`
 }
 
+type JsapiTicket struct {
+	Ticket     string `json:"ticket"`
+	Expires_in int64  `json:"expires_in"`
+}
+
 type ApiClient struct {
 	apptoken      string
 	appid         string
@@ -63,16 +73,10 @@ type ApiClient struct {
 }
 
 func NewApiClient(apptoken, appid, appsecret, fwh_apptoken, fwh_appid, fwh_appsecret string) *ApiClient {
-	return &ApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret, fwh_apptoken: fwh_apptoken, fwh_appid: fwh_appid, fwh_appsecret: fwh_appsecret}
-}
-
-func (c *ApiClient) SetCache(adapter, config string) error {
-	mem, err := cache.NewCache(adapter, config)
-	if err != nil {
-		return err
-	}
-	c.cache = mem
-	return nil
+	api := &ApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret, fwh_apptoken: fwh_apptoken, fwh_appid: fwh_appid, fwh_appsecret: fwh_appsecret}
+	ca, _ := cache.NewCache("memory", `{"interval":30}`) //30秒gc一次
+	api.cache = ca
+	return api
 }
 
 func checkJSError(js []byte) error {
@@ -108,7 +112,46 @@ func (c *ApiClient) Signature(signature, timestamp, nonce string) bool {
 	return false
 }
 
+func (c *ApiClient) GetJsAPISignature(timestamp, nonceStr, url string) (string, error) {
+	//先获得jsapiTicket
+	var jsapiTicket string
+
+	//签名
+	n := len("jsapi_ticket=") + len(jsapiTicket) +
+		len("&noncestr=") + len(nonceStr) +
+		len("&timestamp=") + len(timestamp) +
+		len("&url=") + len(url)
+
+	buf := make([]byte, 0, n)
+
+	buf = append(buf, "jsapi_ticket="...)
+	buf = append(buf, jsapiTicket...)
+	buf = append(buf, "&noncestr="...)
+	buf = append(buf, nonceStr...)
+	buf = append(buf, "&timestamp="...)
+	buf = append(buf, timestamp...)
+	buf = append(buf, "&url="...)
+	buf = append(buf, url...)
+
+	hashsum := sha1.Sum(buf)
+	return hex.EncodeToString(hashsum[:]), nil
+
+}
+
+//服务号获OAuth
 func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
+	cache_token_key := "OAuth_Token"
+	if c.cache != nil {
+		if v := c.cache.Get(cache_token_key); v != nil {
+			switch t := v.(type) {
+			case TokenResponse:
+				return t.Token, t.Openid, nil
+			default:
+				return "", "unexpected type v", errors.New("err from cache to get oauth key")
+			}
+		}
+	}
+
 	reponse, err := http.Get(fmt.Sprintf(fmt_token_url_from_oauth, c.fwh_appid, c.fwh_appsecret, code))
 	if err != nil {
 		return "", "", err
@@ -132,7 +175,52 @@ func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
 		return "", "", err
 	}
 
+	if c.cache != nil {
+		c.cache.Put(cache_token_key, tr.Token, int64(tr.Expires_in-10))
+	}
+
 	return tr.Token, tr.Openid, nil
+
+}
+
+//服务号获得个人信息
+func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string, subscriber *entry.Subscriber) error {
+	if c.cache != nil {
+		if v := c.cache.Get("suboauth_" + oid); v != nil {
+			switch t := v.(type) {
+			case []byte:
+				if err := json.Unmarshal(t, subscriber); err != nil {
+					return err
+				} else {
+					return nil
+				}
+			}
+		}
+	}
+
+	var reponse *http.Response
+	reponse, err := http.Get(fmt.Sprintf(fmt_userinfo_url_from_oauth, token, oid))
+	if err != nil {
+		return err
+	}
+
+	defer reponse.Body.Close()
+
+	data, _ := ioutil.ReadAll(reponse.Body)
+	fmt.Print(string(data))
+	err = checkJSError(data)
+	if err != nil {
+		return err
+	}
+
+	if c.cache != nil {
+		c.cache.Put("suboauth_"+oid, data, default_cache_sec)
+	}
+	if err = json.Unmarshal(data, subscriber); err != nil {
+		return err
+	}
+
+	return nil
 
 }
 
@@ -187,44 +275,6 @@ func (c *ApiClient) Download() error {
 	return nil
 }
 
-func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string, subscriber *entry.Subscriber) error {
-	if c.cache != nil {
-		if v := c.cache.Get("suboauth_" + oid); v != nil {
-			switch t := v.(type) {
-			case []byte:
-				if err := json.Unmarshal(t, subscriber); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	var reponse *http.Response
-	reponse, err := http.Get(fmt.Sprintf(fmt_userinfo_url_from_oauth, token, oid))
-	if err != nil {
-		return err
-	}
-
-	defer reponse.Body.Close()
-
-	data, _ := ioutil.ReadAll(reponse.Body)
-	fmt.Print(string(data))
-	err = checkJSError(data)
-	if err != nil {
-		return err
-	}
-
-	if c.cache != nil {
-		c.cache.Put("suboauth_"+oid, data, default_cache_sec)
-	}
-	if err = json.Unmarshal(data, subscriber); err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
 func (c *ApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) error {
 
 	if c.cache != nil {
@@ -233,6 +283,8 @@ func (c *ApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) erro
 			case []byte:
 				if err := json.Unmarshal(t, subscriber); err != nil {
 					return err
+				} else {
+					return nil
 				}
 			}
 		}
@@ -282,9 +334,9 @@ func (c *ApiClient) CreateMenu(menu *entry.Menu) error {
 		return err
 	}
 
-	re := strings.Replace(string(data),"\\u0026","&",-1)
-	
-//	fmt.Printf(re)
+	re := strings.Replace(string(data), "\\u0026", "&", -1)
+
+	//	fmt.Printf(re)
 
 	reponse, err := http.Post(fmt.Sprintf(fmt_create_menu_url, token), "application/json;charset=utf-8", bytes.NewBufferString(re))
 
@@ -428,12 +480,11 @@ func (c *ApiClient) MovetoGroup() error {
 	return nil
 }
 
-
 func ConvertToString(src string) string {
-	fmt.Println("src:",src)
+	fmt.Println("src:", src)
 	tagCoder := mahonia.GetCharset("utf-8").NewDecoder()
 	_, cdata, _ := tagCoder.Translate([]byte(src), true)
-    result := string(cdata)
-    fmt.Println("result:",result)
-    return result
+	result := string(cdata)
+	fmt.Println("result:", result)
+	return result
 }
