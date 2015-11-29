@@ -111,9 +111,60 @@ func (c *ApiClient) Signature(signature, timestamp, nonce string) bool {
 	return false
 }
 
+func (c *ApiClient) GetJsTicket() (string, error) {
+	var cache_key_jsticket = "Jsapi_Ticket"
+	if c.cache != nil {
+		if v := c.cache.Get(cache_key_jsticket); v != nil {
+			switch t := v.(type) {
+			case string:
+				return t, nil
+			}
+		}
+	}
+
+	token, err := c.GetToken()
+	if err != nil {
+		return "", err
+	}
+
+	var reponse *http.Response
+	reponse, err = http.Get(fmt.Sprintf(fmt_jsapi_token_url, token))
+	if err != nil {
+		return "", err
+	}
+
+	defer reponse.Body.Close()
+
+	data, _ := ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data)
+	if err != nil {
+		return "", err
+	}
+	var ti JsapiTicket
+	if err = json.Unmarshal(data, &ti); err != nil {
+		return "", err
+	}
+
+	jsapiTicket := ti.Ticket
+
+	if c.cache != nil {
+		c.cache.Put(cache_key_jsticket, jsapiTicket, int64(ti.Expires_in-10))
+	}
+
+	return jsapiTicket, nil
+}
+
+//JsAPI
 func (c *ApiClient) GetJsAPISignature(timestamp, nonceStr, url string) (string, error) {
 	//先获得jsapiTicket
 	var jsapiTicket string
+
+	//先获得jsapiTicket =================
+	if t, err := c.GetJsTicket(); err != nil {
+		return "", err
+	} else {
+		jsapiTicket = t
+	}
 
 	//签名
 	n := len("jsapi_ticket=") + len(jsapiTicket) +
@@ -137,7 +188,7 @@ func (c *ApiClient) GetJsAPISignature(timestamp, nonceStr, url string) (string, 
 
 }
 
-//服务号获OAuth
+//OAuth 服务号获OAuth
 func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
 	reponse, err := http.Get(fmt.Sprintf(fmt_token_url_from_oauth, c.fwh_appid, c.fwh_appsecret, code))
 	if err != nil {
@@ -165,7 +216,7 @@ func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
 	return tr.Token, tr.Openid, nil
 }
 
-//服务号获得个人信息
+//OAuth 服务号获得个人信息
 func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string, subscriber *entry.Subscriber) error {
 	if c.cache != nil {
 		if v := c.cache.Get("suboauth_" + oid); v != nil {
