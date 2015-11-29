@@ -15,7 +15,6 @@ import (
 	"code.google.com/p/mahonia"
 	"encoding/hex"
 	"strings"
-	"errors"
 )
 
 const (
@@ -140,18 +139,6 @@ func (c *ApiClient) GetJsAPISignature(timestamp, nonceStr, url string) (string, 
 
 //服务号获OAuth
 func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
-	cache_token_key := "OAuth_Token"
-	if c.cache != nil {
-		if v := c.cache.Get(cache_token_key); v != nil {
-			switch t := v.(type) {
-			case TokenResponse:
-				return t.Token, t.Openid, nil
-			default:
-				return "", "unexpected type v", errors.New("err from cache to get oauth key")
-			}
-		}
-	}
-
 	reponse, err := http.Get(fmt.Sprintf(fmt_token_url_from_oauth, c.fwh_appid, c.fwh_appsecret, code))
 	if err != nil {
 		return "", "", err
@@ -175,12 +162,7 @@ func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
 		return "", "", err
 	}
 
-	if c.cache != nil {
-		c.cache.Put(cache_token_key, tr.Token, int64(tr.Expires_in-10))
-	}
-
 	return tr.Token, tr.Openid, nil
-
 }
 
 //服务号获得个人信息
