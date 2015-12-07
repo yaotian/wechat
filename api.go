@@ -22,20 +22,6 @@ const (
 	default_cache_sec = 86400
 )
 
-var (
-	fmt_token_url          string = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s"
-	fmt_userinfo_url       string = "https://api.weixin.qq.com/cgi-bin/user/info?access_token=%s&openid=%s&lang=zh_CN"
-	fmt_upload_media_url   string = "http://file.api.weixin.qq.com/cgi-bin/media/upload?access_token=%s&type=%s"
-	fmt_download_media_url string = "http://file.api.weixin.qq.com/cgi-bin/media/get?access_token=%s&media_id=%s"
-	fmt_sendmessage_url    string = "https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=%s"
-	fmt_create_menu_url    string = "https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s"
-	fmt_remove_menu_url    string = "https://api.weixin.qq.com/cgi-bin/menu/delete?access_token=%s"
-
-	fmt_token_url_from_oauth    string = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code"
-	fmt_userinfo_url_from_oauth string = "https://api.weixin.qq.com/sns/userinfo?access_token=%s&openid=%s&lang=zh_CN"
-
-	fmt_jsapi_token_url string = "https://api.weixin.qq.com/cgi-bin/ticket/getticket?access_token=%s&type=jsapi"
-)
 
 type ApiError struct {
 	ErrCode int    `json:"errcode"`
@@ -61,22 +47,6 @@ type JsapiTicket struct {
 	Expires_in int64  `json:"expires_in"`
 }
 
-type ApiClient struct {
-	apptoken      string
-	appid         string
-	appsecret     string
-	fwh_apptoken  string
-	fwh_appid     string
-	fwh_appsecret string
-	cache         cache.Cache
-}
-
-func NewApiClient(apptoken, appid, appsecret, fwh_apptoken, fwh_appid, fwh_appsecret string) *ApiClient {
-	api := &ApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret, fwh_apptoken: fwh_apptoken, fwh_appid: fwh_appid, fwh_appsecret: fwh_appsecret}
-	ca, _ := cache.NewCache("memory", `{"interval":30}`) //30秒gc一次
-	api.cache = ca
-	return api
-}
 
 func checkJSError(js []byte) error {
 	var errmsg ApiError
@@ -91,6 +61,27 @@ func checkJSError(js []byte) error {
 	return nil
 }
 
+
+//This is old
+type ApiClient struct {
+	apptoken      string
+	appid         string
+	appsecret     string
+	fwh_apptoken  string
+	fwh_appid     string
+	fwh_appsecret string
+	cache         cache.Cache
+}
+
+//This is old
+func NewApiClient(apptoken, appid, appsecret, fwh_apptoken, fwh_appid, fwh_appsecret string) *ApiClient {
+	api := &ApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret, fwh_apptoken: fwh_apptoken, fwh_appid: fwh_appid, fwh_appsecret: fwh_appsecret}
+	ca, _ := cache.NewCache("memory", `{"interval":30}`) //30秒gc一次
+	api.cache = ca
+	return api
+}
+
+//下面的ApiClient只是兼容，逐渐不会被用，看gzh_api webauth_api
 func (c *ApiClient) Signature(signature, timestamp, nonce string) bool {
 
 	strs := sort.StringSlice{c.apptoken, timestamp, nonce}
@@ -258,8 +249,10 @@ func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string, subscriber 
 }
 
 func (c *ApiClient) GetToken() (string, error) {
+	cache_key := c.appid + "." + default_token_key
+
 	if c.cache != nil {
-		if v := c.cache.Get(default_token_key); v != nil {
+		if v := c.cache.Get(cache_key); v != nil {
 			switch t := v.(type) {
 			case string:
 				return t, nil
@@ -294,7 +287,7 @@ func (c *ApiClient) GetToken() (string, error) {
 		return "", err
 	}
 	if c.cache != nil {
-		c.cache.Put(default_token_key, tr.Token, int64(tr.Expires_in-10))
+		c.cache.Put(cache_key, tr.Token, int64(tr.Expires_in-20))
 	}
 
 	return tr.Token, nil
@@ -309,9 +302,9 @@ func (c *ApiClient) Download() error {
 }
 
 func (c *ApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) error {
-
+	var cache_key = c.appid + "." + "sub_" + oid
 	if c.cache != nil {
-		if v := c.cache.Get("sub_" + oid); v != nil {
+		if v := c.cache.Get(cache_key); v != nil {
 			switch t := v.(type) {
 			case []byte:
 				if err := json.Unmarshal(t, subscriber); err != nil {
@@ -343,7 +336,7 @@ func (c *ApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) erro
 	}
 
 	if c.cache != nil {
-		c.cache.Put("sub_"+oid, data, default_cache_sec)
+		c.cache.Put(cache_key, data, default_cache_sec)
 	}
 	if err = json.Unmarshal(data, subscriber); err != nil {
 		return err
