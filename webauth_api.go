@@ -39,23 +39,23 @@ func NewWebAuthClient(fwh_appid, fwh_appsecret string) *WebAuthClient {
 
 //OAuth 服务号获OAuth code为微信服务器回调过来的code
 func (c *WebAuthClient) GetTokenFromOAuth(code string) (string, string, error) {
-	cache_key := c.appid + "." + default_oauth_token_from_code_key
-	token_key := cache_key + ".token"
-	openid_key := cache_key + ".openid"
-
-	if c.cache != nil {
-		if vt := c.cache.Get(token_key); vt != nil {
-			if vo := c.cache.Get(openid_key); vo != nil {
-				var token, openId string
-				var err error
-				token, err = getRedisCacheString(vt)
-				openId, err = getRedisCacheString(vo)
-				if err == nil && token != "" && openId != "" {
-					return token, openId, nil
-				}
-			}
-		}
-	}
+//	cache_key := c.appid + "." + default_oauth_token_from_code_key
+//	token_key := cache_key + ".token"
+//	openid_key := cache_key + ".openid"
+//
+//	if c.cache != nil {
+//		if vt := c.cache.Get(token_key); vt != nil {
+//			if vo := c.cache.Get(openid_key); vo != nil {
+//				var token, openId string
+//				var err error
+//				token, err = getRedisCacheString(vt)
+//				openId, err = getRedisCacheString(vo)
+//				if err == nil && token != "" && openId != "" {
+//					return token, openId, nil
+//				}
+//			}
+//		}
+//	}
 
 	reponse, err := http.Get(fmt.Sprintf(fmt_token_url_from_oauth, c.appid, c.appsecret, code))
 	if err != nil {
@@ -80,10 +80,10 @@ func (c *WebAuthClient) GetTokenFromOAuth(code string) (string, string, error) {
 		return "", "", err
 	}
 
-	if c.cache != nil {
-		c.cache.Put(token_key, tr.Token, int64(tr.Expires_in-20))
-		c.cache.Put(openid_key, tr.Openid, int64(tr.Expires_in-20))
-	}
+//	if c.cache != nil {
+//		c.cache.Put(token_key, tr.Token, int64(tr.Expires_in-20))
+//		c.cache.Put(openid_key, tr.Openid, int64(tr.Expires_in-20))
+//	}
 
 	return tr.Token, tr.Openid, nil
 }
