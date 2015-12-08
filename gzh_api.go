@@ -40,12 +40,15 @@ type GzhApiClient struct {
 	cache     cache.Cache
 }
 
-func NewGzhApiClient(apptoken, appid, appsecret string) *GzhApiClient {
+func NewGzhApiClient(apptoken, appid, appsecret string) (*GzhApiClient, error) {
 	api := &GzhApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret}
 	//	ca, _ := cache.NewCache("memory", `{"interval":10}`) //10秒gc一次
-	ca, _ := cache.NewCache("redisx", `{"conn":":6379"}`)
-	api.cache = ca
-	return api
+	if ca, err := cache.NewCache("redisx", `{"conn":":6379"}`); err != nil {
+		return nil, err
+	} else {
+		api.cache = ca
+		return api, nil
+	}
 }
 
 func (c *GzhApiClient) Signature(signature, timestamp, nonce string) bool {
