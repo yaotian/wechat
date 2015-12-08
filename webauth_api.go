@@ -32,8 +32,8 @@ type WebAuthClient struct {
 func NewWebAuthClient(fwh_appid, fwh_appsecret string) *WebAuthClient {
 	api := &WebAuthClient{appid: fwh_appid, appsecret: fwh_appsecret}
 	//	ca, _ := cache.NewCache("memory", `{"interval":10}`) //10秒gc一次
-//	ca, _ := cache.NewCache("redisx", `{"conn":":6379"}`)
-//	api.cache = ca
+	ca, _ := cache.NewCache("redisx", `{"conn":":6379"}`)
+	api.cache = ca
 	return api
 }
 

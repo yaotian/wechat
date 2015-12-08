@@ -43,8 +43,8 @@ type GzhApiClient struct {
 func NewGzhApiClient(apptoken, appid, appsecret string) *GzhApiClient {
 	api := &GzhApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret}
 	//	ca, _ := cache.NewCache("memory", `{"interval":10}`) //10秒gc一次
-//	ca, _ := cache.NewCache("redisx", `{"conn":":6379"}`)
-//	api.cache = ca
+	ca, _ := cache.NewCache("redisx", `{"conn":":6379"}`)
+	api.cache = ca
 	return api
 }
 
