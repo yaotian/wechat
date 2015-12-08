@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/astaxie/beego/cache"
+	"github.com/yaotian/wechat/cache"
 	"github.com/yaotian/wechat/entry"
 	"io/ioutil"
 	"net/http"
@@ -31,16 +31,16 @@ type WebAuthClient struct {
 
 func NewWebAuthClient(fwh_appid, fwh_appsecret string) *WebAuthClient {
 	api := &WebAuthClient{appid: fwh_appid, appsecret: fwh_appsecret}
-	ca, _ := cache.NewCache("memory", `{"interval":10}`) //10秒gc一次
+	//	ca, _ := cache.NewCache("memory", `{"interval":10}`) //10秒gc一次
+	ca, _ := cache.NewCache("redisx", `{"conn":":6379"}`)
 	api.cache = ca
 	return api
 }
 
-
 //OAuth 服务号获OAuth code为微信服务器回调过来的code
 func (c *WebAuthClient) GetTokenFromOAuth(code string) (string, string, error) {
 
-	cache_key := c.appid + ".webauthapi.tokenfromoauth"
+	cache_key := c.appid + "." + default_oauth_token_from_code_key
 
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
@@ -85,7 +85,8 @@ func (c *WebAuthClient) GetTokenFromOAuth(code string) (string, string, error) {
 
 //OAuth 服务号获得个人信息
 func (c *WebAuthClient) GetSubscriberFromOAuth(oid string, token string, subscriber *entry.Subscriber) error {
-	var cache_key = c.appid + ".webauthapi.suboauth_" + oid
+	cache_key := c.appid + "." + default_subscribe_key + "." + oid
+	
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
 			switch t := v.(type) {
@@ -125,8 +126,6 @@ func (c *WebAuthClient) GetSubscriberFromOAuth(oid string, token string, subscri
 
 }
 
-
-
 //==============================Web Js API 支持===================
 //JsAPI
 func (c *WebAuthClient) GetJsAPISignature(timestamp, nonceStr, url string) (string, error) {
@@ -163,7 +162,7 @@ func (c *WebAuthClient) GetJsAPISignature(timestamp, nonceStr, url string) (stri
 }
 
 func (c *WebAuthClient) GetJsTicket() (string, error) {
-	var cache_key_jsticket = c.appid + ".webauthapi.Jsapi_Ticket"
+	var cache_key_jsticket = c.appid + "." + default_jsapi_key
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key_jsticket); v != nil {
 			switch t := v.(type) {
@@ -205,9 +204,8 @@ func (c *WebAuthClient) GetJsTicket() (string, error) {
 	return jsapiTicket, nil
 }
 
-
 func (c *WebAuthClient) GetToken() (string, error) {
-	cache_key := c.appid + ".webauthapi.gettoken"
+	cache_key := c.appid + "." + default_token_key
 
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
@@ -250,4 +248,5 @@ func (c *WebAuthClient) GetToken() (string, error) {
 
 	return tr.Token, nil
 }
+
 //=====================End

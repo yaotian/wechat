@@ -5,7 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	"github.com/astaxie/beego/cache"
+	"github.com/yaotian/wechat/cache"
 	"github.com/yaotian/wechat/entry"
 	"io/ioutil"
 	"net/http"
@@ -42,7 +42,8 @@ type GzhApiClient struct {
 
 func NewGzhApiClient(apptoken, appid, appsecret string) *GzhApiClient {
 	api := &GzhApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret}
-	ca, _ := cache.NewCache("memory", `{"interval":10}`) //10秒gc一次
+//	ca, _ := cache.NewCache("memory", `{"interval":10}`) //10秒gc一次
+	ca, _ := cache.NewCache("redisx",`{"conn":":6379"}`)
 	api.cache = ca
 	return api
 }
@@ -68,7 +69,8 @@ func (c *GzhApiClient) Signature(signature, timestamp, nonce string) bool {
 }
 
 func (c *GzhApiClient) GetToken() (string, error) {
-	cache_key := c.appid + ".gzhapi." + default_token_key
+	
+	cache_key := c.appid + "." + default_token_key
 
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
@@ -121,7 +123,7 @@ func (c *GzhApiClient) Download() error {
 }
 
 func (c *GzhApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) error {
-	var cache_key = c.appid + ".gzhapi." + "sub_" + oid
+	cache_key := c.appid+"."+default_subscribe_key+"."+oid
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
 			switch t := v.(type) {

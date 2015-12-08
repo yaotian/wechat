@@ -20,11 +20,6 @@ func TestConvertToString(t *testing.T) {
 	menu.Add(button)
 
 	data, _ := json.Marshal(menu)
-	//	fmt.Print("raw data,",string(data))
-
-	//	test_string := '{"button":[{"name":"test","sub_button":[{"type":"view","name":"test1","url":"http://mp.weixin.qq.com/s?__biz=MzI5MTA2MzQ4MA==\u0026mid=213616969\u0026idx=1\u0026sn=800110519c306cc52b82f2ff1651116e#rd"}]}]}'
-	//	test2_string := "http://mp.weixin.qq.com/s?__biz=MzI5MTA2MzQ4MA==\u0026mid=213616969\u0026idx=1\u0026sn=800110519c306cc52b82f2ff1651116e#rd"
-	
 
 //	cdata := tagCoder.ConvertString(string(data))
 	for_me := transform.NewReader(bytes.NewBuffer(data), simplifiedchinese.GBK.NewEncoder())
@@ -33,11 +28,6 @@ func TestConvertToString(t *testing.T) {
 	fmt.Print(string(cdata))
 	fmt.Print(strings.Replace(string(cdata),"\\u0026","&",-1))
 
-//	fmt.Println("after data,", string(cdata))
-
-//	menu2 := entry.NewMenu()
-//	json.Unmarshal(data, &menu2)
-//	fmt.Print(menu2.Buttons[0].Sub[0].Url)
 }
 
 

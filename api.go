@@ -5,8 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	//	"github.com/yaotian/wechat/cache"
-	"github.com/astaxie/beego/cache"
+	"github.com/yaotian/wechat/cache"
 	"github.com/yaotian/wechat/entry"
 	"io/ioutil"
 	"net/http"
@@ -18,10 +17,12 @@ import (
 )
 
 const (
-	default_token_key = "wechat.api.default.token.key"
-	default_cache_sec = 86400
+	default_token_key     = "wechat.api.default.token.key"
+	default_subscribe_key = "wechat.subscribe.key"
+	default_jsapi_key     = "wechat.jsapi.key"
+	default_oauth_token_from_code_key = "wechat.api.oauth.token.from.code.key"
+	default_cache_sec     = 86400
 )
-
 
 type ApiError struct {
 	ErrCode int    `json:"errcode"`
@@ -47,7 +48,6 @@ type JsapiTicket struct {
 	Expires_in int64  `json:"expires_in"`
 }
 
-
 func checkJSError(js []byte) error {
 	var errmsg ApiError
 	if err := json.Unmarshal(js, &errmsg); err != nil {
@@ -60,7 +60,6 @@ func checkJSError(js []byte) error {
 
 	return nil
 }
-
 
 //This is old
 type ApiClient struct {
@@ -76,7 +75,8 @@ type ApiClient struct {
 //This is old
 func NewApiClient(apptoken, appid, appsecret, fwh_apptoken, fwh_appid, fwh_appsecret string) *ApiClient {
 	api := &ApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret, fwh_apptoken: fwh_apptoken, fwh_appid: fwh_appid, fwh_appsecret: fwh_appsecret}
-	ca, _ := cache.NewCache("memory", `{"interval":30}`) //30秒gc一次
+	//	ca, _ := cache.NewCache("memory", `{"interval":30}`) //30秒gc一次
+	ca, _ := cache.NewCache("redisx", `{"conn":":6379"}`)
 	api.cache = ca
 	return api
 }
@@ -103,7 +103,7 @@ func (c *ApiClient) Signature(signature, timestamp, nonce string) bool {
 }
 
 func (c *ApiClient) GetJsTicket() (string, error) {
-	var cache_key_jsticket = "Jsapi_Ticket"
+	var cache_key_jsticket = c.appid + "." + default_jsapi_key
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key_jsticket); v != nil {
 			switch t := v.(type) {
@@ -181,6 +181,20 @@ func (c *ApiClient) GetJsAPISignature(timestamp, nonceStr, url string) (string, 
 
 //OAuth 服务号获OAuth
 func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
+	cache_key := c.appid + "." + default_oauth_token_from_code_key
+
+	if c.cache != nil {
+		if v := c.cache.Get(cache_key); v != nil {
+			switch t := v.(type) {
+			case TokenResponse:
+				return t.Token, t.Openid, nil
+			default:
+				return "", "", fmt.Errorf("unexpected type v:", t)
+			}
+		}
+	}
+
+	
 	reponse, err := http.Get(fmt.Sprintf(fmt_token_url_from_oauth, c.fwh_appid, c.fwh_appsecret, code))
 	if err != nil {
 		return "", "", err
@@ -204,13 +218,18 @@ func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
 		return "", "", err
 	}
 
+	if c.cache != nil {
+		c.cache.Put(cache_key, tr, int64(tr.Expires_in-20))
+	}
+
 	return tr.Token, tr.Openid, nil
 }
 
 //OAuth 服务号获得个人信息
 func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string, subscriber *entry.Subscriber) error {
+	cache_key := c.appid + "." + default_subscribe_key + "." + oid
 	if c.cache != nil {
-		if v := c.cache.Get("suboauth_" + oid); v != nil {
+		if v := c.cache.Get(cache_key); v != nil {
 			switch t := v.(type) {
 			case []byte:
 				if err := json.Unmarshal(t, subscriber); err != nil {
@@ -238,7 +257,7 @@ func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string, subscriber 
 	}
 
 	if c.cache != nil {
-		c.cache.Put("suboauth_"+oid, data, default_cache_sec)
+		c.cache.Put(cache_key, data, default_cache_sec)
 	}
 	if err = json.Unmarshal(data, subscriber); err != nil {
 		return err
@@ -302,7 +321,7 @@ func (c *ApiClient) Download() error {
 }
 
 func (c *ApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) error {
-	var cache_key = c.appid + "." + "sub_" + oid
+	cache_key := c.appid + "." + default_subscribe_key + "." + oid
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
 			switch t := v.(type) {
