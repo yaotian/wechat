@@ -93,8 +93,8 @@ type ApiClient struct {
 func NewApiClient(apptoken, appid, appsecret, fwh_apptoken, fwh_appid, fwh_appsecret string) *ApiClient {
 	api := &ApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret, fwh_apptoken: fwh_apptoken, fwh_appid: fwh_appid, fwh_appsecret: fwh_appsecret}
 	//	ca, _ := cache.NewCache("memory", `{"interval":30}`) //30秒gc一次
-	ca, _ := cache.NewCache("redisx", `{"conn":":6379"}`)
-	api.cache = ca
+//	ca, _ := cache.NewCache("redisx", `{"conn":":6379"}`)
+//	api.cache = ca
 	return api
 }
 
