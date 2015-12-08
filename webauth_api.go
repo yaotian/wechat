@@ -39,16 +39,20 @@ func NewWebAuthClient(fwh_appid, fwh_appsecret string) *WebAuthClient {
 
 //OAuth 服务号获OAuth code为微信服务器回调过来的code
 func (c *WebAuthClient) GetTokenFromOAuth(code string) (string, string, error) {
-
 	cache_key := c.appid + "." + default_oauth_token_from_code_key
+	token_key := cache_key + ".token"
+	openid_key := cache_key + ".openid"
 
 	if c.cache != nil {
-		if v := c.cache.Get(cache_key); v != nil {
-			switch t := v.(type) {
-			case TokenResponse:
-				return t.Token, t.Openid, nil
-			default:
-				return "", "", fmt.Errorf("unexpected type v:", t)
+		if vt := c.cache.Get(token_key); vt != nil {
+			if vo := c.cache.Get(openid_key); vo != nil {
+				var token, openId string
+				var err error
+				token, err = getRedisCacheString(vt)
+				openId, err = getRedisCacheString(vo)
+				if err == nil && token != "" && openId != "" {
+					return token, openId, nil
+				}
 			}
 		}
 	}
@@ -77,7 +81,8 @@ func (c *WebAuthClient) GetTokenFromOAuth(code string) (string, string, error) {
 	}
 
 	if c.cache != nil {
-		c.cache.Put(cache_key, tr, int64(tr.Expires_in-20))
+		c.cache.Put(token_key, tr.Token, int64(tr.Expires_in-20))
+		c.cache.Put(openid_key, tr.Openid, int64(tr.Expires_in-20))
 	}
 
 	return tr.Token, tr.Openid, nil
@@ -86,16 +91,16 @@ func (c *WebAuthClient) GetTokenFromOAuth(code string) (string, string, error) {
 //OAuth 服务号获得个人信息
 func (c *WebAuthClient) GetSubscriberFromOAuth(oid string, token string, subscriber *entry.Subscriber) error {
 	cache_key := c.appid + "." + default_subscribe_key + "." + oid
-	
+
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
-			switch t := v.(type) {
-			case []byte:
+			if t, err := getRedisCacheBytes(v); err == nil {
 				if err := json.Unmarshal(t, subscriber); err != nil {
-					return err
+					//do nothing
 				} else {
 					return nil
 				}
+
 			}
 		}
 	}
@@ -165,10 +170,7 @@ func (c *WebAuthClient) GetJsTicket() (string, error) {
 	var cache_key_jsticket = c.appid + "." + default_jsapi_key
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key_jsticket); v != nil {
-			switch t := v.(type) {
-			case string:
-				return t, nil
-			}
+			return getRedisCacheString(v) //ticket是string
 		}
 	}
 
@@ -209,13 +211,8 @@ func (c *WebAuthClient) GetToken() (string, error) {
 
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
-			switch t := v.(type) {
-			case string:
-				return t, nil
-			case []byte:
-				return string(t), nil
-			default:
-				return "", fmt.Errorf("unexpected type v:", t)
+			if token, err := getRedisCacheString(v); err == nil {
+				return token, nil
 			}
 		}
 	}

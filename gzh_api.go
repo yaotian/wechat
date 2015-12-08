@@ -42,8 +42,8 @@ type GzhApiClient struct {
 
 func NewGzhApiClient(apptoken, appid, appsecret string) *GzhApiClient {
 	api := &GzhApiClient{apptoken: apptoken, appid: appid, appsecret: appsecret}
-//	ca, _ := cache.NewCache("memory", `{"interval":10}`) //10秒gc一次
-	ca, _ := cache.NewCache("redisx",`{"conn":":6379"}`)
+	//	ca, _ := cache.NewCache("memory", `{"interval":10}`) //10秒gc一次
+	ca, _ := cache.NewCache("redisx", `{"conn":":6379"}`)
 	api.cache = ca
 	return api
 }
@@ -69,18 +69,13 @@ func (c *GzhApiClient) Signature(signature, timestamp, nonce string) bool {
 }
 
 func (c *GzhApiClient) GetToken() (string, error) {
-	
+
 	cache_key := c.appid + "." + default_token_key
 
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
-			switch t := v.(type) {
-			case string:
-				return t, nil
-			case []byte:
-				return string(t), nil
-			default:
-				return "", fmt.Errorf("unexpected type v:", t)
+			if token, err := getRedisCacheString(v); err == nil {
+				return token, nil
 			}
 		}
 	}
@@ -123,13 +118,12 @@ func (c *GzhApiClient) Download() error {
 }
 
 func (c *GzhApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) error {
-	cache_key := c.appid+"."+default_subscribe_key+"."+oid
+	cache_key := c.appid + "." + default_subscribe_key + "." + oid
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
-			switch t := v.(type) {
-			case []byte:
+			if t, err := getRedisCacheBytes(v); err == nil {
 				if err := json.Unmarshal(t, subscriber); err != nil {
-					return err
+					//do nothing
 				} else {
 					return nil
 				}

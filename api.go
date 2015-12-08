@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"github.com/garyburd/redigo/redis"
 	"github.com/yaotian/wechat/cache"
 	"github.com/yaotian/wechat/entry"
 	"io/ioutil"
@@ -17,11 +18,11 @@ import (
 )
 
 const (
-	default_token_key     = "wechat.api.default.token.key"
-	default_subscribe_key = "wechat.subscribe.key"
-	default_jsapi_key     = "wechat.jsapi.key"
+	default_token_key                 = "wechat.api.default.token.key"
+	default_subscribe_key             = "wechat.subscribe.key"
+	default_jsapi_key                 = "wechat.jsapi.key"
 	default_oauth_token_from_code_key = "wechat.api.oauth.token.from.code.key"
-	default_cache_sec     = 86400
+	default_cache_sec                 = 86400
 )
 
 type ApiError struct {
@@ -59,6 +60,22 @@ func checkJSError(js []byte) error {
 	}
 
 	return nil
+}
+
+func getRedisCacheString(redis_input interface{}) (string, error) {
+	if result, err := redis.String(redis_input, nil); err == nil {
+		return result, nil
+	} else {
+		return "", err
+	}
+}
+
+func getRedisCacheBytes(redis_input interface{}) ([]byte, error) {
+	if result, err := redis.Bytes(redis_input, nil); err == nil {
+		return result, nil
+	} else {
+		return []byte{}, err
+	}
 }
 
 //This is old
@@ -106,10 +123,7 @@ func (c *ApiClient) GetJsTicket() (string, error) {
 	var cache_key_jsticket = c.appid + "." + default_jsapi_key
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key_jsticket); v != nil {
-			switch t := v.(type) {
-			case string:
-				return t, nil
-			}
+			return getRedisCacheString(v) //ticket是string
 		}
 	}
 
@@ -182,19 +196,23 @@ func (c *ApiClient) GetJsAPISignature(timestamp, nonceStr, url string) (string, 
 //OAuth 服务号获OAuth
 func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
 	cache_key := c.appid + "." + default_oauth_token_from_code_key
+	token_key := cache_key + ".token"
+	openid_key := cache_key + ".openid"
 
 	if c.cache != nil {
-		if v := c.cache.Get(cache_key); v != nil {
-			switch t := v.(type) {
-			case TokenResponse:
-				return t.Token, t.Openid, nil
-			default:
-				return "", "", fmt.Errorf("unexpected type v:", t)
+		if vt := c.cache.Get(token_key); vt != nil {
+			if vo := c.cache.Get(openid_key); vo != nil {
+				var token, openId string
+				var err error
+				token, err = getRedisCacheString(vt)
+				openId, err = getRedisCacheString(vo)
+				if err == nil && token != "" && openId != "" {
+					return token, openId, nil
+				}
 			}
 		}
 	}
 
-	
 	reponse, err := http.Get(fmt.Sprintf(fmt_token_url_from_oauth, c.fwh_appid, c.fwh_appsecret, code))
 	if err != nil {
 		return "", "", err
@@ -219,7 +237,8 @@ func (c *ApiClient) GetTokenFromOAuth(code string) (string, string, error) {
 	}
 
 	if c.cache != nil {
-		c.cache.Put(cache_key, tr, int64(tr.Expires_in-20))
+		c.cache.Put(token_key, tr.Token, int64(tr.Expires_in-20))
+		c.cache.Put(openid_key, tr.Openid, int64(tr.Expires_in-20))
 	}
 
 	return tr.Token, tr.Openid, nil
@@ -230,13 +249,13 @@ func (c *ApiClient) GetSubscriberFromOAuth(oid string, token string, subscriber 
 	cache_key := c.appid + "." + default_subscribe_key + "." + oid
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
-			switch t := v.(type) {
-			case []byte:
+			if t, err := getRedisCacheBytes(v); err == nil {
 				if err := json.Unmarshal(t, subscriber); err != nil {
-					return err
+					//do nothing
 				} else {
 					return nil
 				}
+
 			}
 		}
 	}
@@ -272,13 +291,8 @@ func (c *ApiClient) GetToken() (string, error) {
 
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
-			switch t := v.(type) {
-			case string:
-				return t, nil
-			case []byte:
-				return string(t), nil
-			default:
-				return "", fmt.Errorf("unexpected type v:", t)
+			if token, err := getRedisCacheString(v); err == nil {
+				return token, nil
 			}
 		}
 	}
@@ -324,10 +338,9 @@ func (c *ApiClient) GetSubscriber(oid string, subscriber *entry.Subscriber) erro
 	cache_key := c.appid + "." + default_subscribe_key + "." + oid
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
-			switch t := v.(type) {
-			case []byte:
+			if t, err := getRedisCacheBytes(v); err == nil {
 				if err := json.Unmarshal(t, subscriber); err != nil {
-					return err
+					//do nothing
 				} else {
 					return nil
 				}
