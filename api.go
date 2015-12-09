@@ -93,6 +93,7 @@ func (c *WeixinMpApiClient) GetToken() (string, error) {
 
 	reponse, err := http.Get(fmt.Sprintf(fmt_token_url, c.appid, c.appsecret))
 	if err != nil {
+		beego.Error(err)
 		return "", err
 	}
 
@@ -101,16 +102,19 @@ func (c *WeixinMpApiClient) GetToken() (string, error) {
 	var data []byte
 	data, err = ioutil.ReadAll(reponse.Body)
 	if err != nil {
+		beego.Error(err)
 		return "", err
 	}
 
 	err = checkJSError(data)
 	if err != nil {
+		beego.Error(err)
 		return "", err
 	}
 
 	var tr TokenResponse
 	if err = json.Unmarshal(data, &tr); err != nil {
+		beego.Error(err)
 		return "", err
 	}
 	if c.cache != nil {
