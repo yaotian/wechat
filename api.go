@@ -133,6 +133,15 @@ func (c *WeixinMpApiClient) GetToken() (string, error) {
 	return tr.Token, nil
 }
 
+//有时token无效，清一下cache
+func (c *WeixinMpApiClient) CleanTokenCache() {
+	cache_key := c.appid + "." + default_token_key
+	beego.Info("star to clean cache token")
+	if c.cache != nil {
+		c.cache.Delete(cache_key)
+	}
+}
+
 //Jssdk ======================
 //token换js ticket
 func (c *WeixinMpApiClient) GetJsTicket() (string, error) {
@@ -246,8 +255,17 @@ func (c *WeixinMpApiClient) VoiceDownloadFromWeixin(fileSave, mediaId string) er
 //sudo apt-get install libsox-fmt-mp3
 //sox test.amr test.mp3
 func (c *WeixinMpApiClient) VoiceAmrToMp3(amrFile, mp3File string) error {
-	cmd := exec.Command("/usr/bin/sox",amrFile, mp3File)
+	cmd := exec.Command("/usr/bin/sox", amrFile, mp3File)
 	return cmd.Run()
+}
+
+func (c *WeixinMpApiClient) GetMediaDownloadFromWeixinUrl(mediaId string) (string, error) {
+	token, err := c.GetToken()
+	if err != nil {
+		beego.Error(err)
+		return "", err
+	}
+	return fmt.Sprintf(fmt_download_media_url, token, mediaId), nil
 }
 
 func (c *WeixinMpApiClient) Upload() error {
