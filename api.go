@@ -12,8 +12,8 @@ import (
 	"github.com/yaotian/wechat/entry"
 	"io/ioutil"
 	"net/http"
-	"sort"
 	"net/url"
+	"sort"
 	//	"unicode/utf8"
 
 	"encoding/hex"
@@ -48,7 +48,7 @@ var (
 	//网页授权获取用户基本信息获得user信息
 	fmt_userinfo_url_from_oauth string = "https://api.weixin.qq.com/sns/userinfo?access_token=%s&openid=%s&lang=zh_CN"
 	//OAuth调用url获取open_id, 已经确认过头像的用户不会再有任何提示
-	fmt_weboauth_snsapi_base_url string = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=snsapi_base&state=1#wechat_redirect"
+	fmt_weboauth_snsapi_base_url     string = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=snsapi_base&state=1#wechat_redirect"
 	fmt_weboauth_snsapi_userinfo_url string = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=snsapi_userinfo&state=1#wechat_redirect"
 )
 
@@ -80,17 +80,21 @@ func NewWeixinMpApiClient(appid string, appsecret string) (*WeixinMpApiClient, e
 
 func (c *WeixinMpApiClient) GetToken() (string, error) {
 	cache_key := c.appid + "." + default_token_key
-
+	beego.Info("star to get token")
 	if c.cache != nil {
 		if v := c.cache.Get(cache_key); v != nil {
-			if token, err := getRedisCacheString(v); err == nil {
+			if token, err := getRedisCacheString(v); err == nil && token != "" {
+				beego.Info("get token from cache success", token)
 				return token, nil
 			} else {
 				beego.Error("get token from cache fail", err)
 			}
+			beego.Error("This token cache is not valid, delete it")
+			c.cache.Delete(cache_key)
 		}
 	}
-
+	
+	beego.Info("start to get token from weixin")
 	reponse, err := http.Get(fmt.Sprintf(fmt_token_url, c.appid, c.appsecret))
 	if err != nil {
 		beego.Error(err)
@@ -117,7 +121,9 @@ func (c *WeixinMpApiClient) GetToken() (string, error) {
 		beego.Error(err)
 		return "", err
 	}
+	
 	if c.cache != nil {
+		beego.Info("set the token to cache ", tr.Token, int64(tr.Expires_in-100))
 		c.cache.Put(cache_key, tr.Token, int64(tr.Expires_in-100))
 	}
 
@@ -496,7 +502,6 @@ func (c *WeixinMpApiClient) GetOAuth_Snsapi_Base_Url(redirect_to_url string) str
 func (c *WeixinMpApiClient) GetOAuth_Snsapi_Userinfo_Url(redirect_to_url string) string {
 	return fmt.Sprintf(fmt_weboauth_snsapi_userinfo_url, c.appid, url.QueryEscape(redirect_to_url))
 }
-
 
 //服务号Only==================End==================
 
