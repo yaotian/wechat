@@ -226,13 +226,6 @@ func (c *WeixinMpApiClient) VoiceDownloadFromWeixin(fileSave, mediaId string) er
 	}
 	defer reponse.Body.Close()
 
-	data, _ := ioutil.ReadAll(reponse.Body)
-	err = checkJSError(data)
-	if err != nil {
-		beego.Error(err)
-		return err
-	}
-
 	f, err := os.Create(fileSave)
 	if err != nil {
 		beego.Error(err)
