@@ -17,6 +17,9 @@ import (
 	//	"unicode/utf8"
 
 	"encoding/hex"
+	"io"
+	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -93,7 +96,7 @@ func (c *WeixinMpApiClient) GetToken() (string, error) {
 			c.cache.Delete(cache_key)
 		}
 	}
-	
+
 	beego.Info("start to get token from weixin")
 	reponse, err := http.Get(fmt.Sprintf(fmt_token_url, c.appid, c.appsecret))
 	if err != nil {
@@ -121,7 +124,7 @@ func (c *WeixinMpApiClient) GetToken() (string, error) {
 		beego.Error(err)
 		return "", err
 	}
-	
+
 	if c.cache != nil {
 		beego.Info("set the token to cache ", tr.Token, int64(tr.Expires_in-100))
 		c.cache.Put(cache_key, tr.Token, int64(tr.Expires_in-100))
@@ -207,6 +210,46 @@ func (c *WeixinMpApiClient) GetJsAPISignature(timestamp, nonceStr, url string) (
 }
 
 //Jssdk===================End
+
+//从微信平台下载语音文件，文件格式是amr
+func (c *WeixinMpApiClient) VoiceDownloadFromWeixin(fileSave, mediaId string) error {
+	token, err := c.GetToken()
+	if err != nil {
+		return err
+	}
+
+	reponse, err := http.Get(fmt.Sprintf(fmt_download_media_url, token, mediaId))
+	if err != nil {
+		return err
+	}
+	defer reponse.Body.Close()
+
+	data, _ := ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(fileSave)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(f, reponse.Body)
+	return err
+}
+
+//将arm文件转化为mp3格式,ubuntu需要sox支持
+//sudo apt-get install lame
+//sudo apt-get install sox
+//sudo apt-get install libsox-fmt-mp3
+//sox test.amr test.mp3
+func (c *WeixinMpApiClient) VoiceAmrToMp3(amrFile, mp3File string) error {
+	cmdStr := "sox " + amrFile + " " + mp3File
+	cmd := exec.Command(cmdStr)
+	return cmd.Run()
+}
 
 func (c *WeixinMpApiClient) Upload() error {
 	return nil
