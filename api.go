@@ -246,8 +246,7 @@ func (c *WeixinMpApiClient) VoiceDownloadFromWeixin(fileSave, mediaId string) er
 //sudo apt-get install libsox-fmt-mp3
 //sox test.amr test.mp3
 func (c *WeixinMpApiClient) VoiceAmrToMp3(amrFile, mp3File string) error {
-	cmdStr := "sox " + amrFile + " " + mp3File
-	cmd := exec.Command(cmdStr)
+	cmd := exec.Command("/usr/bin/sox",amrFile, mp3File)
 	return cmd.Run()
 }
 
