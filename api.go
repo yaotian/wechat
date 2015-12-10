@@ -215,11 +215,13 @@ func (c *WeixinMpApiClient) GetJsAPISignature(timestamp, nonceStr, url string) (
 func (c *WeixinMpApiClient) VoiceDownloadFromWeixin(fileSave, mediaId string) error {
 	token, err := c.GetToken()
 	if err != nil {
+		beego.Error(err)
 		return err
 	}
 
 	reponse, err := http.Get(fmt.Sprintf(fmt_download_media_url, token, mediaId))
 	if err != nil {
+		beego.Error(err)
 		return err
 	}
 	defer reponse.Body.Close()
@@ -227,16 +229,21 @@ func (c *WeixinMpApiClient) VoiceDownloadFromWeixin(fileSave, mediaId string) er
 	data, _ := ioutil.ReadAll(reponse.Body)
 	err = checkJSError(data)
 	if err != nil {
+		beego.Error(err)
 		return err
 	}
 
 	f, err := os.Create(fileSave)
 	if err != nil {
+		beego.Error(err)
 		return err
 	}
 	defer f.Close()
 
 	_, err = io.Copy(f, reponse.Body)
+	if err != nil {
+		beego.Error(err)
+	}
 	return err
 }
 
