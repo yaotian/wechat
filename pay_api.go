@@ -2,8 +2,10 @@ package wechat
 
 import (
 	"errors"
+	"fmt"
 	"github.com/astaxie/beego"
 	"net/http"
+	"time"
 )
 
 var (
@@ -46,7 +48,30 @@ type Order struct {
 }
 
 //jsapi call pay 需要的页面配置
-//主要是活的prepay_id
+func (c *WeixinPayApiClient) GetJsApiSignedPayPrepayIdMap(order Order) (map[string]string, error) {
+	prepayId, err := c.GetJsApiPayPrepayId(order)
+	if err != nil {
+		return nil, err
+	}
+
+	nocestr := GetRandomString(8)
+	timestamp := fmt.Sprint(time.Now().Unix())
+
+	var mapForSign = make(map[string]string)
+	mapForSign["appId"] = c.appId
+	mapForSign["timeStamp"] = timestamp
+	mapForSign["nonceStr"] = nocestr
+	mapForSign["package"] = "prepay_id=" + prepayId
+	mapForSign["signType"] = "MD5"
+
+	sign := Sign(mapForSign, c.apiKey, nil)
+	mapForSign["paySign"] = sign
+	beego.Info(mapForSign)
+	return mapForSign, nil
+
+}
+
+//主要是获得prepay_id
 func (c *WeixinPayApiClient) GetJsApiPayPrepayId(order Order) (string, error) {
 	input := c.CreateUnifiedOrderMap(order)
 	if result, err := c.UnifiedOrder(input); err == nil { //有prepay_id
@@ -80,10 +105,10 @@ func (c *WeixinPayApiClient) GetJsApiPayPrepayId(order Order) (string, error) {
 
 func (c *WeixinPayApiClient) CreateUnifiedOrderMap(order Order) map[string]string {
 	var input = make(map[string]string)
-	input["appid"] = c.appId                  //设置微信分配的公众账号ID
-	input["mch_id"] = c.mchId                 //设置微信支付分配的商户号
-	input["nonce_str"] = GetRandomString(5)   //设置随机字符串，不长于32位。推荐随机数生成算法
-	input["body"] = order.Body                //获取商品或支付单简要描述的值
+	input["appid"] = c.appId                //设置微信分配的公众账号ID
+	input["mch_id"] = c.mchId               //设置微信支付分配的商户号
+	input["nonce_str"] = GetRandomString(5) //设置随机字符串，不长于32位。推荐随机数生成算法
+	input["body"] = order.Body              //获取商品或支付单简要描述的值
 
 	input["out_trade_no"] = order.OutTradeNum //设置商户系统内部的订单号,32个字符内、可包含字母, 其他说明见商户订单号
 	input["total_fee"] = order.TotalFee       //设置订单总金额，只能为整数，详见支付金额
@@ -92,19 +117,19 @@ func (c *WeixinPayApiClient) CreateUnifiedOrderMap(order Order) map[string]strin
 	input["trade_type"] = "JSAPI"             //设置取值如下：JSAPI，NATIVE，APP，详细说明见参数规定
 	input["openid"] = order.OpenId            //设置trade_type=JSAPI，此参数必传，用户在商户appid下的唯一标识。下单前需要调用【网页授权获取用户信息】接口获取到用户的Openid
 
-//	input["goods_tag"] = order.GoodsTag       //设置商品标记，代金券或立减优惠功能的参数，说明详见代金券或立减优惠
-//	input["detail"] = ""                      //设置商品名称明细列表
-//	input["attach"] = order.Attach            //设置附加数据，在查询API和支付通知中原样返回，该字段主要用于商户携带订单的自定义数据
-//	input["device_info"] = "WEB"                 //设置微信支付分配的终端设备号，商户自定义, PC网页或公众号内支付请传"WEB"
-//	input["fee_type"] = "CNY"                 //设置符合ISO 4217标准的三位字母代码，默认人民币：CNY，其他值列表详见货币类型
-//	input["time_start"] = GetOrderNow()       //设置订单生成时间，格式为yyyyMMddHHmmss，如2009年12月25日9点10分10秒表示为20091225091010
-//	input["time_expire"] = GetOrderExpire()   //获取订单生成时间，格式为yyyyMMddHHmmss，如2009年12月25日9点10分10秒表示为20091225091010
-//	input["product_id"] = ""                  //设置trade_type=NATIVE，此参数必传。此id为二维码中包含的商品ID，商户自行定义
+	//	input["goods_tag"] = order.GoodsTag       //设置商品标记，代金券或立减优惠功能的参数，说明详见代金券或立减优惠
+	//	input["detail"] = ""                      //设置商品名称明细列表
+	//	input["attach"] = order.Attach            //设置附加数据，在查询API和支付通知中原样返回，该字段主要用于商户携带订单的自定义数据
+	//	input["device_info"] = "WEB"                 //设置微信支付分配的终端设备号，商户自定义, PC网页或公众号内支付请传"WEB"
+	//	input["fee_type"] = "CNY"                 //设置符合ISO 4217标准的三位字母代码，默认人民币：CNY，其他值列表详见货币类型
+	//	input["time_start"] = GetOrderNow()       //设置订单生成时间，格式为yyyyMMddHHmmss，如2009年12月25日9点10分10秒表示为20091225091010
+	//	input["time_expire"] = GetOrderExpire()   //获取订单生成时间，格式为yyyyMMddHHmmss，如2009年12月25日9点10分10秒表示为20091225091010
+	//	input["product_id"] = ""                  //设置trade_type=NATIVE，此参数必传。此id为二维码中包含的商品ID，商户自行定义
 
 	//sign
 	sign := Sign(input, c.apiKey, nil)
 	input["sign"] = sign
-	beego.Info(input)	
+	beego.Info(input)
 	return input
 }
 
