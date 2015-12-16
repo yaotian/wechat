@@ -45,6 +45,8 @@ type Order struct {
 	GoodsTag    string
 	Ip          string
 	NotifyUrl   string
+	TradeType   string
+	ProductId   string
 }
 
 //jsapi call pay 需要的页面配置
@@ -70,6 +72,26 @@ func (c *WeixinPayApiClient) GetJsApiSignedPayPrepayIdMap(order Order) (map[stri
 	return mapForSign, nil
 
 }
+
+//native mode2
+func (c *WeixinPayApiClient) GetJsApiPayCoddUrl(order Order) (string, error) {
+	input := c.CreateUnifiedOrderMap(order)
+	if result, err := c.UnifiedOrder(input); err == nil { //有code_url
+		code_url := result["code_url"]
+		if code_url != "" {
+			beego.Info("Get the code url,", code_url)
+			return code_url, nil
+		}
+	} else {
+		beego.Error(err, input)
+		return "", err
+	}
+
+	err := errors.New("unknow error to get prepayId")
+	beego.Error(err)
+	return "", err
+}
+
 
 //主要是获得prepay_id
 func (c *WeixinPayApiClient) GetJsApiPayPrepayId(order Order) (string, error) {
@@ -114,8 +136,18 @@ func (c *WeixinPayApiClient) CreateUnifiedOrderMap(order Order) map[string]strin
 	input["total_fee"] = order.TotalFee       //设置订单总金额，只能为整数，详见支付金额
 	input["spbill_create_ip"] = order.Ip      //设置APP和网页支付提交用户端ip，Native支付填调用微信支付API的机器IP。
 	input["notify_url"] = order.NotifyUrl     //设置接收微信支付异步通知回调地址
-	input["trade_type"] = "JSAPI"             //设置取值如下：JSAPI，NATIVE，APP，详细说明见参数规定
-	input["openid"] = order.OpenId            //设置trade_type=JSAPI，此参数必传，用户在商户appid下的唯一标识。下单前需要调用【网页授权获取用户信息】接口获取到用户的Openid
+	if order.TradeType != "" {
+		input["trade_type"] = order.TradeType
+
+	} else {
+		input["trade_type"] = "JSAPI" //设置取值如下：JSAPI，NATIVE，APP，详细说明见参数规定
+	}
+
+	if order.ProductId != "" {
+		input["product_id"] = order.ProductId //这个
+	}
+	
+	input["openid"] = order.OpenId //设置trade_type=JSAPI，此参数必传，用户在商户appid下的唯一标识。下单前需要调用【网页授权获取用户信息】接口获取到用户的Openid
 
 	//	input["goods_tag"] = order.GoodsTag       //设置商品标记，代金券或立减优惠功能的参数，说明详见代金券或立减优惠
 	//	input["detail"] = ""                      //设置商品名称明细列表
