@@ -133,11 +133,11 @@ func (c *WeixinPayApiClient) PostXML(url string, req map[string]string, needSSL 
 	}
 
 	// 安全考虑, 做下验证
-	appId, ok := resp["appid"]
-	if ok && appId != c.appId {
-		err = fmt.Errorf("appid mismatch, have: %q, want: %q", appId, c.appId)
-		return
-	}
+//	appId, ok := resp["appid"]
+//	if ok && appId != c.appId {
+//		err = fmt.Errorf("appid mismatch, have: %q, want: %q", appId, c.appId)
+//		return
+//	}
 	mchId, ok := resp["mch_id"]
 	if ok && mchId != c.mchId {
 		err = fmt.Errorf("mch_id mismatch, have: %q, want: %q", mchId, c.mchId)
