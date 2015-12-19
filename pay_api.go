@@ -12,28 +12,45 @@ var (
 	url_unifiedOrder = "https://api.mch.weixin.qq.com/pay/unifiedorder"
 	url_orderQuery   = "https://api.mch.weixin.qq.com/pay/orderquery"
 	url_closeOrder   = "https://api.mch.weixin.qq.com/pay/closeorder"
+	url_sendredpack  = "https://api.mch.weixin.qq.com/mmpaymkttransfers/sendredpack"
 )
 
 type WeixinPayApiClient struct {
-	appId      string
-	mchId      string
-	apiKey     string
-	httpClient *http.Client
-	mpClient   *WeixinMpApiClient
+	appId       string
+	mchId       string
+	apiKey      string
+	httpClient  *http.Client
+	shttpClient *http.Client
+	mpClient    *WeixinMpApiClient
 }
 
-func NewWeixinPayApiClient(mchId, apiKey string, httpClient *http.Client, _mpClient *WeixinMpApiClient) *WeixinPayApiClient {
-	if httpClient == nil {
-		httpClient = http.DefaultClient
+func (this *WeixinPayApiClient) AddSSLClient(certFiles, keyFile string) {
+	shttp, err := NewTLSHttpClient(certFiles, keyFile)
+	if err != nil {
+		beego.Error(err)
+	} else {
+		this.shttpClient = shttp
 	}
+}
 
-	return &WeixinPayApiClient{
+func NewWeixinPayApiClient(mchId, apiKey string, certFiles, keyFile string, _mpClient *WeixinMpApiClient) *WeixinPayApiClient {
+	client := &WeixinPayApiClient{
 		appId:      _mpClient.appid, //应该是一样的
 		mchId:      mchId,
 		apiKey:     apiKey,
-		httpClient: httpClient,
+		httpClient: http.DefaultClient,
 		mpClient:   _mpClient,
 	}
+
+	if certFiles != "" && keyFile != "" {
+		shttp, err := NewTLSHttpClient(certFiles, keyFile)
+		if err == nil {
+			client.shttpClient = shttp
+		} else {
+			beego.Error(err)
+		}
+	}
+	return client
 }
 
 type Order struct {
@@ -92,7 +109,6 @@ func (c *WeixinPayApiClient) GetJsApiPayCoddUrl(order Order) (string, error) {
 	return "", err
 }
 
-
 //主要是获得prepay_id
 func (c *WeixinPayApiClient) GetJsApiPayPrepayId(order Order) (string, error) {
 	input := c.CreateUnifiedOrderMap(order)
@@ -146,7 +162,7 @@ func (c *WeixinPayApiClient) CreateUnifiedOrderMap(order Order) map[string]strin
 	if order.ProductId != "" {
 		input["product_id"] = order.ProductId //这个
 	}
-	
+
 	input["openid"] = order.OpenId //设置trade_type=JSAPI，此参数必传，用户在商户appid下的唯一标识。下单前需要调用【网页授权获取用户信息】接口获取到用户的Openid
 
 	//	input["goods_tag"] = order.GoodsTag       //设置商品标记，代金券或立减优惠功能的参数，说明详见代金券或立减优惠
@@ -165,17 +181,71 @@ func (c *WeixinPayApiClient) CreateUnifiedOrderMap(order Order) map[string]strin
 	return input
 }
 
+//发送红包
+func (c *WeixinPayApiClient) SendRedPackToUser(clientIp, openId, money, send_name, wishing, act_name, remark string) error {
+	billno := c.mchId + GetOrderNow() + Get10NumString()
+	var signMap = make(map[string]string)
+	signMap["nonce_str"] = GetRandomString(5)
+	signMap["mch_billno"] = billno //mch_id+yyyymmdd+10位一天内不能重复的数字
+	signMap["mch_id"] = c.mchId
+	signMap["wxappid"] = c.appId
+	signMap["send_name"] = send_name
+	signMap["re_openid"] = openId
+	signMap["total_amount"] = money
+	signMap["total_num"] = "1"
+	signMap["wishing"] = wishing
+	signMap["client_ip"] = clientIp
+	signMap["act_name"] = act_name
+	signMap["remark"] = remark
+	signMap["sign"] = Sign(signMap, c.apiKey, nil)
+	beego.Info("redpack map,",signMap)
+	respMap, err := c.SendRedPack(signMap)
+	if err != nil {
+		return err
+	}
+
+	result_code, ok := respMap["result_code"]
+	if !ok {
+		err = errors.New("no result_code")
+		beego.Error(err)
+		return err
+	}
+	if result_code != "SUCCESS" {
+		err = errors.New("result code is not success")
+		beego.Error(err)
+		return err
+	}
+
+	mch_billno, ok := respMap["mch_billno"]
+	if !ok {
+		err = errors.New("no mch_billno")
+		beego.Error(err)
+		return err
+	}
+	if billno != mch_billno {
+		err = errors.New("billno is not correct")
+		beego.Error(err)
+		return err
+	}
+	return nil
+}
+
 //统一下单
 func (c *WeixinPayApiClient) UnifiedOrder(req map[string]string) (resp map[string]string, err error) {
-	return c.PostXML(url_unifiedOrder, req)
+	return c.PostXML(url_unifiedOrder, req, false)
 }
 
 //查询订单
 func (c *WeixinPayApiClient) OrderQuery(req map[string]string) (resp map[string]string, err error) {
-	return c.PostXML(url_orderQuery, req)
+	return c.PostXML(url_orderQuery, req, false)
 }
 
 //关闭订单
 func (c *WeixinPayApiClient) CloseOrder(req map[string]string) (resp map[string]string, err error) {
-	return c.PostXML(url_closeOrder, req)
+	return c.PostXML(url_closeOrder, req, false)
+}
+
+//发红包
+func (c *WeixinPayApiClient) SendRedPack(req map[string]string) (resp map[string]string, err error) {
+	return c.PostXML(url_sendredpack, req, true)
 }

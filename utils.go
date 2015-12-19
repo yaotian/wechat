@@ -10,6 +10,8 @@ import (
 	"github.com/astaxie/beego"
 	"github.com/garyburd/redigo/redis"
 	"io"
+	mathRand "math/rand"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -163,8 +165,8 @@ func GetOrderNow() string {
 	return beego.Date(now, "YmdHis")
 }
 
-func GetOrderExpire() string{
-	now := time.Now().Add(600.* time.Second)
+func GetOrderExpire() string {
+	now := time.Now().Add(600. * time.Second)
 	return beego.Date(now, "YmdHis")
 }
 
@@ -179,4 +181,46 @@ func GetRandomString(n int) string {
 		bytes[i] = alphanum[b%byte(len(alphanum))]
 	}
 	return string(bytes)
+}
+
+func Get10NumString() string {
+	num := RandNum(1000000000, 9999999999)
+	return strconv.Itoa(num)
+}
+
+func RandNum(small, big int) (result int) {
+	re := generateRandomNumber(small, big, 1)
+	return re[0]
+}
+
+//生成count个[start,end)结束的不重复的随机数
+func generateRandomNumber(start int, end int, count int) []int {
+	//范围检查
+	if end < start || (end-start) < count {
+		return nil
+	}
+
+	//存放结果的slice
+	nums := make([]int, 0)
+	//随机数生成器，加入时间戳保证每次生成的随机数不一样
+	r := mathRand.New(mathRand.NewSource(time.Now().UnixNano()))
+	for len(nums) < count {
+		//生成随机数
+		num := r.Intn((end - start)) + start
+
+		//查重
+		exist := false
+		for _, v := range nums {
+			if v == num {
+				exist = true
+				break
+			}
+		}
+
+		if !exist {
+			nums = append(nums, num)
+		}
+	}
+
+	return nums
 }

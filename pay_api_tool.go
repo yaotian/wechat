@@ -1,22 +1,20 @@
 package wechat
 
-
 import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"hash"
 	"sort"
-	
-	"net/http"
+
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"errors"
-	
+	"net/http"
+
 	"crypto/tls"
 	"net"
 	"time"
-	
 )
 
 const (
@@ -82,8 +80,7 @@ func Sign(parameters map[string]string, apiKey string, fn func() hash.Hash) stri
 	return string(bytes.ToUpper(signature))
 }
 
-
-func (c *WeixinPayApiClient) PostXML(url string, req map[string]string) (resp map[string]string, err error) {
+func (c *WeixinPayApiClient) PostXML(url string, req map[string]string, needSSL bool) (resp map[string]string, err error) {
 	bodyBuf := textBufferPool.Get().(*bytes.Buffer)
 	bodyBuf.Reset()
 	defer textBufferPool.Put(bodyBuf)
@@ -92,7 +89,13 @@ func (c *WeixinPayApiClient) PostXML(url string, req map[string]string) (resp ma
 		return
 	}
 
-	httpResp, err := c.httpClient.Post(url, "text/xml; charset=utf-8", bodyBuf)
+	//需要ssl，就需要ssl client
+	client := c.httpClient
+	if needSSL {
+		client = c.shttpClient
+	}
+
+	httpResp, err := client.Post(url, "text/xml; charset=utf-8", bodyBuf)
 	if err != nil {
 		return
 	}
@@ -144,14 +147,13 @@ func (c *WeixinPayApiClient) PostXML(url string, req map[string]string) (resp ma
 		err = errors.New("no sign parameter")
 		return
 	}
-	signature2 := Sign(resp,c.apiKey, nil)
+	signature2 := Sign(resp, c.apiKey, nil)
 	if signature1 != signature2 {
 		err = fmt.Errorf("check signature failed, \r\ninput: %q, \r\nlocal: %q", signature1, signature2)
 		return
 	}
 	return
 }
-
 
 // NewTLSHttpClient 创建支持双向证书认证的 http.Client
 func NewTLSHttpClient(certFile, keyFile string) (httpClient *http.Client, err error) {
@@ -177,4 +179,3 @@ func NewTLSHttpClient(certFile, keyFile string) (httpClient *http.Client, err er
 	}
 	return
 }
-
