@@ -133,27 +133,31 @@ func (c *WeixinPayApiClient) PostXML(url string, req map[string]string, needSSL 
 	}
 
 	// 安全考虑, 做下验证
-//	appId, ok := resp["appid"]
-//	if ok && appId != c.appId {
-//		err = fmt.Errorf("appid mismatch, have: %q, want: %q", appId, c.appId)
-//		return
-//	}
 	mchId, ok := resp["mch_id"]
 	if ok && mchId != c.mchId {
 		err = fmt.Errorf("mch_id mismatch, have: %q, want: %q", mchId, c.mchId)
 		return
 	}
+	
+	//发送红包的情况，不需要验证这些，因为有的信息没有
+	if !needSSL {
+		appId, ok := resp["appid"]
+		if ok && appId != c.appId {
+			err = fmt.Errorf("appid mismatch, have: %q, want: %q", appId, c.appId)
+			return
+		}
 
-	// 认证签名
-	signature1, ok := resp["sign"]
-	if !ok {
-		err = errors.New("no sign parameter")
-		return
-	}
-	signature2 := Sign(resp, c.apiKey, nil)
-	if signature1 != signature2 {
-		err = fmt.Errorf("check signature failed, \r\ninput: %q, \r\nlocal: %q", signature1, signature2)
-		return
+		// 认证签名
+		signature1, ok := resp["sign"]
+		if !ok {
+			err = errors.New("no sign parameter")
+			return
+		}
+		signature2 := Sign(resp, c.apiKey, nil)
+		if signature1 != signature2 {
+			err = fmt.Errorf("check signature failed, \r\ninput: %q, \r\nlocal: %q", signature1, signature2)
+			return
+		}
 	}
 	return
 }
