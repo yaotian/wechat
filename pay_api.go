@@ -183,7 +183,11 @@ func (c *WeixinPayApiClient) CreateUnifiedOrderMap(order Order) map[string]strin
 
 //发送红包
 func (c *WeixinPayApiClient) SendRedPackToUser(clientIp, openId, money, send_name, wishing, act_name, remark string) error {
-	billno := c.mchId + GetOrderNow() + Get10NumString()
+
+	now := time.Now()
+	dayStr := beego.Date(now, "Ymd")
+
+	billno := c.mchId + dayStr + Get10NumString()
 	var signMap = make(map[string]string)
 	signMap["nonce_str"] = GetRandomString(5)
 	signMap["mch_billno"] = billno //mch_id+yyyymmdd+10位一天内不能重复的数字
@@ -198,7 +202,7 @@ func (c *WeixinPayApiClient) SendRedPackToUser(clientIp, openId, money, send_nam
 	signMap["act_name"] = act_name
 	signMap["remark"] = remark
 	signMap["sign"] = Sign(signMap, c.apiKey, nil)
-	beego.Info("redpack map,",signMap)
+	beego.Info("redpack map,", signMap)
 	respMap, err := c.SendRedPack(signMap)
 	if err != nil {
 		return err
