@@ -13,6 +13,7 @@ import (
 	"net/http"
 
 	"crypto/tls"
+	"github.com/astaxie/beego"
 	"net"
 	"time"
 )
@@ -114,6 +115,8 @@ func (c *WeixinPayApiClient) PostXML(url string, req map[string]string, needSSL 
 	if resp, err = ParseXMLToMap(bytes.NewReader(respBody)); err != nil {
 		return
 	}
+
+	beego.Info(resp)
 
 	// 判断协议状态
 	ReturnCode, ok := resp["return_code"]
