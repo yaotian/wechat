@@ -583,6 +583,7 @@ func (c *WeixinMpApiClient) SendTemplateMsg(tmsg *entry.TemplateMessage) (err er
 	beego.Debug(token)
 	beego.Debug(*tmsg)
 	beego.Debug(postUrl)
+	beego.Debug(string(msg))
 
 	return c.Post(postUrl, msg)
 }

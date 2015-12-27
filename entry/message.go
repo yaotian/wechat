@@ -167,5 +167,5 @@ type TemplateMessage struct {
 	URL        string `json:"url,omitempty"`      // 可选, 用户点击后跳转的URL, 该URL必须处于开发者在公众平台网站中设置的域中
 	TopColor   string `json:"topcolor,omitempty"` // 可选, 整个消息的颜色, 可以不设置
 
-	RawJSONData string `json:"data"` // 必须, JSON 格式, 满足特定的模板需求
+	Data interface{} `json:"data"` // 必须, 满足特定的模板需求
 }
