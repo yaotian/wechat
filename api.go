@@ -53,6 +53,8 @@ var (
 	//OAuth调用url获取open_id, 已经确认过头像的用户不会再有任何提示
 	fmt_weboauth_snsapi_base_url     string = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=snsapi_base&state=1#wechat_redirect"
 	fmt_weboauth_snsapi_userinfo_url string = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=snsapi_userinfo&state=1#wechat_redirect"
+
+	fmt_template_send_url string = "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=%s"
 )
 
 const (
@@ -562,6 +564,30 @@ func (c *WeixinMpApiClient) GetOAuth_Snsapi_Base_Url(redirect_to_url string) str
 func (c *WeixinMpApiClient) GetOAuth_Snsapi_Userinfo_Url(redirect_to_url string) string {
 	return fmt.Sprintf(fmt_weboauth_snsapi_userinfo_url, c.appid, url.QueryEscape(redirect_to_url))
 }
+
+//发模板消息
+
+func (c *WeixinMpApiClient) SendTemplateMsg(tmsg *entry.TemplateMessage) (err error) {
+	token, err := c.GetToken()
+	if err != nil {
+		return
+	}
+
+	msg, err := json.Marshal(tmsg)
+	if err != nil {
+		return
+	}
+	
+
+	postUrl := fmt.Sprintf(fmt_template_send_url, token)
+	beego.Debug(token)
+	beego.Debug(*tmsg)
+	beego.Debug(postUrl)
+
+	return c.Post(postUrl, msg)
+}
+
+//发送模板消息end
 
 //服务号Only==================End==================
 

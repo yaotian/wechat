@@ -1,14 +1,14 @@
 package wechat
 
 import (
-	"golang.org/x/text/transform"
-	"golang.org/x/text/encoding/simplifiedchinese"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/yaotian/wechat/entry"
-	"testing"
-	"bytes"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 	"io/ioutil"
+	"testing"
 	//	"unicode/utf8"
 	"strings"
 )
@@ -21,12 +21,12 @@ func TestConvertToString(t *testing.T) {
 
 	data, _ := json.Marshal(menu)
 
-//	cdata := tagCoder.ConvertString(string(data))
+	//	cdata := tagCoder.ConvertString(string(data))
 	for_me := transform.NewReader(bytes.NewBuffer(data), simplifiedchinese.GBK.NewEncoder())
-	
+
 	cdata, _ := ioutil.ReadAll(for_me)
 	fmt.Print(string(cdata))
-	fmt.Print(strings.Replace(string(cdata),"\\u0026","&",-1))
+	fmt.Print(strings.Replace(string(cdata), "\\u0026", "&", -1))
 
 }
 
