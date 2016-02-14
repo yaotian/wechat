@@ -50,10 +50,12 @@ func (e *ApiError) Error() string {
 func checkJSError(js []byte) error {
 	var errmsg ApiError
 	if err := json.Unmarshal(js, &errmsg); err != nil {
+		beego.Error(err)
 		return err
 	}
 
 	if errmsg.ErrCode != 0 {
+		beego.Error(errmsg)
 		return &errmsg
 	}
 
