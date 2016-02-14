@@ -154,6 +154,8 @@ func (c *WeixinMpApiClient) GetJsTicket() (string, error) {
 		}
 	}
 
+	i := 0
+Do:
 	token, err := c.GetToken()
 	if err != nil {
 		return "", err
@@ -170,6 +172,13 @@ func (c *WeixinMpApiClient) GetJsTicket() (string, error) {
 	data, _ := ioutil.ReadAll(reponse.Body)
 	err = checkJSError(data)
 	if err != nil {
+
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+
 		return "", err
 	}
 	var ti JsapiTicket
@@ -577,7 +586,6 @@ func (c *WeixinMpApiClient) SendTemplateMsg(tmsg *entry.TemplateMessage) (err er
 	if err != nil {
 		return
 	}
-	
 
 	postUrl := fmt.Sprintf(fmt_template_send_url, token)
 	beego.Debug(token)
