@@ -301,6 +301,8 @@ func (c *WeixinMpApiClient) GetSubscriber(oid string, subscriber *entry.Subscrib
 		}
 	}
 
+	i := 0
+Do:
 	token, err := c.GetToken()
 	if err != nil {
 		return err
@@ -317,6 +319,13 @@ func (c *WeixinMpApiClient) GetSubscriber(oid string, subscriber *entry.Subscrib
 	data, _ := ioutil.ReadAll(reponse.Body)
 	err = checkJSError(data)
 	if err != nil {
+
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+
 		return err
 	}
 
@@ -577,6 +586,8 @@ func (c *WeixinMpApiClient) GetOAuth_Snsapi_Userinfo_Url(redirect_to_url string)
 //发模板消息
 
 func (c *WeixinMpApiClient) SendTemplateMsg(tmsg *entry.TemplateMessage) (err error) {
+	i := 0
+Do:
 	token, err := c.GetToken()
 	if err != nil {
 		return
@@ -593,7 +604,15 @@ func (c *WeixinMpApiClient) SendTemplateMsg(tmsg *entry.TemplateMessage) (err er
 	beego.Debug(postUrl)
 	beego.Debug(string(msg))
 
-	return c.Post(postUrl, msg)
+	if err := c.Post(postUrl, msg); err != nil {
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+	}
+
+	return
 }
 
 //发送模板消息end
