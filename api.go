@@ -233,6 +233,8 @@ func (c *WeixinMpApiClient) GetJsAPISignature(timestamp, nonceStr, url string) (
 
 //从微信平台下载语音文件，文件格式是amr
 func (c *WeixinMpApiClient) VoiceDownloadFromWeixin(fileSave, mediaId string) error {
+	i := 0
+Do:
 	token, err := c.GetToken()
 	if err != nil {
 		beego.Error(err)
@@ -248,6 +250,13 @@ func (c *WeixinMpApiClient) VoiceDownloadFromWeixin(fileSave, mediaId string) er
 
 	f, err := os.Create(fileSave)
 	if err != nil {
+
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+
 		beego.Error(err)
 		return err
 	}
@@ -344,6 +353,8 @@ func (c *WeixinMpApiClient) ListSubscribers() error {
 }
 
 func (c *WeixinMpApiClient) CreateMenu(menu *entry.Menu) error {
+	i := 0
+Do:
 	token, err := c.GetToken()
 	if err != nil {
 		return err
@@ -369,6 +380,13 @@ func (c *WeixinMpApiClient) CreateMenu(menu *entry.Menu) error {
 	data2, _ := ioutil.ReadAll(reponse.Body)
 	err = checkJSError(data2)
 	if err != nil {
+
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+
 		return err
 	}
 	return nil
@@ -381,6 +399,8 @@ func (c *WeixinMpApiClient) GetMenu() error {
 }
 
 func (c *WeixinMpApiClient) RemoveMenu() error {
+	i := 0
+Do:
 	token, err := c.GetToken()
 	if err != nil {
 		return err
@@ -395,6 +415,13 @@ func (c *WeixinMpApiClient) RemoveMenu() error {
 	data, _ := ioutil.ReadAll(reponse.Body)
 	err = checkJSError(data)
 	if err != nil {
+
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+
 		return err
 	}
 
@@ -418,12 +445,22 @@ func (c *WeixinMpApiClient) Post(url string, json []byte) error {
 	return nil
 }
 
-func (c *WeixinMpApiClient) SendMessage(msg []byte) error {
+func (c *WeixinMpApiClient) SendMessage(msg []byte)  (err error) {
+	i := 0
+Do:
 	token, err := c.GetToken()
 	if err != nil {
 		return err
 	}
-	return c.Post(fmt.Sprintf(fmt_sendmessage_url, token), msg)
+
+	if err := c.Post(fmt.Sprintf(fmt_sendmessage_url, token), msg); err != nil {
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+	}
+	return
 }
 
 func (c *WeixinMpApiClient) SendTextMessage(text *entry.TextMessage) error {
