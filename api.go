@@ -243,6 +243,13 @@ Do:
 
 	reponse, err := http.Get(fmt.Sprintf(fmt_download_media_url, token, mediaId))
 	if err != nil {
+
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+
 		beego.Error(err)
 		return err
 	}
@@ -264,6 +271,13 @@ Do:
 
 	_, err = io.Copy(f, reponse.Body)
 	if err != nil {
+
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+
 		beego.Error(err)
 	}
 	return err
@@ -445,7 +459,7 @@ func (c *WeixinMpApiClient) Post(url string, json []byte) error {
 	return nil
 }
 
-func (c *WeixinMpApiClient) SendMessage(msg []byte)  (err error) {
+func (c *WeixinMpApiClient) SendMessage(msg []byte) (err error) {
 	i := 0
 Do:
 	token, err := c.GetToken()
