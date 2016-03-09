@@ -55,6 +55,10 @@ var (
 	fmt_weboauth_snsapi_userinfo_url string = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=snsapi_userinfo&state=1#wechat_redirect"
 
 	fmt_template_send_url string = "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=%s"
+
+	//带参数的二维码
+	fmt_qrcode_url string = "https://api.weixin.qq.com/cgi-bin/qrcode/create?access_token=%s"
+	fmt_qrcode_picture string = "https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=%s"
 )
 
 const (
@@ -459,6 +463,23 @@ func (c *WeixinMpApiClient) Post(url string, json []byte) error {
 	return nil
 }
 
+func (c *WeixinMpApiClient) PostForData(url string, json []byte) (err error, data []byte) {
+	reponse, err := http.Post(url, "text/json", bytes.NewBuffer(json))
+	if err != nil {
+		return
+	}
+
+	defer reponse.Body.Close()
+
+	data, _ = ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data)
+	if err != nil {
+		return
+	}
+
+	return nil, data
+}
+
 func (c *WeixinMpApiClient) SendMessage(msg []byte) (err error) {
 	i := 0
 Do:
@@ -667,6 +688,72 @@ Do:
 }
 
 //发送模板消息end
+
+/* ----------------- 带参数的二维码 ----------------- */
+type QRCode struct {
+	Ticket        string `json:"ticket"`
+	ExpireSeconds int    `json:"expire_seconds"`
+	Url           string `json:"url"`
+}
+
+//if expireSeconds <0 就用最大的
+func (c *WeixinMpApiClient) GetTempQrCode(expireSeconds, scene_id int) (qr QRCode, err error) {
+	if expireSeconds < 0 {
+		expireSeconds = 2592000
+	}
+	jsonStr := fmt.Sprintf(`{"expire_seconds": %d, "action_name": "QR_SCENE", "action_info": {"scene": {"scene_id": %d}}}`, expireSeconds, scene_id)
+
+	i := 0
+Do:
+	token, err := c.GetToken()
+	if err != nil {
+		return
+	}
+
+	if err, data := c.PostForData(fmt.Sprintf(fmt_qrcode_url, token), []byte(jsonStr)); err != nil {
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+	} else {
+		var qr QRCode
+		if err := json.Unmarshal(data, &qr); err == nil {
+			return qr, nil
+		}
+	}
+	return
+}
+
+func (c *WeixinMpApiClient) GetLongQrCode(scene_str string) (qr QRCode, err error) {
+	jsonStr := fmt.Sprintf(`{"action_name": "QR_LIMIT_STR_SCENE", "action_info": {"scene": {"scene_str": "%s"}}}`, scene_str)
+
+	i := 0
+Do:
+	token, err := c.GetToken()
+	if err != nil {
+		return
+	}
+
+	if err, data := c.PostForData(fmt.Sprintf(fmt_qrcode_url, token), []byte(jsonStr)); err != nil {
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+	} else {
+		var qr QRCode
+		if err := json.Unmarshal(data, &qr); err == nil {
+			return qr, nil
+		}
+	}
+	return
+}
+
+//用二维码换来的图片链接
+func GetQrCodePictureLink(ticket string)string{
+	return fmt.Sprintf(fmt_qrcode_picture,ticket)
+}
 
 //服务号Only==================End==================
 
