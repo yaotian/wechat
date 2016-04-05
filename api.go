@@ -57,7 +57,7 @@ var (
 	fmt_template_send_url string = "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=%s"
 
 	//带参数的二维码
-	fmt_qrcode_url string = "https://api.weixin.qq.com/cgi-bin/qrcode/create?access_token=%s"
+	fmt_qrcode_url     string = "https://api.weixin.qq.com/cgi-bin/qrcode/create?access_token=%s"
 	fmt_qrcode_picture string = "https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=%s"
 )
 
@@ -698,6 +698,27 @@ type QRCode struct {
 
 //if expireSeconds <0 就用最大的
 func (c *WeixinMpApiClient) GetTempQrCode(expireSeconds, scene_id int) (qr QRCode, err error) {
+
+	cache_key := fmt.Sprintf("%s.tmp_qrcode.%d", c.appid, scene_id)
+	beego.Info("star to get QRCode")
+	if c.cache != nil {
+		if v := c.cache.Get(cache_key); v != nil {
+			if qr_data, err := getRedisCacheString(v); err == nil && qr_data != "" {
+				beego.Info("get QRCode data from cache success")
+
+				var qr QRCode
+				if err := json.Unmarshal([]byte(qr_data), &qr); err == nil {
+					return qr, nil
+				}
+
+			} else {
+				beego.Error("get QRCode data  from cache fail", err)
+			}
+			beego.Error("This tmp qrcode data is not valid, delete it")
+			c.cache.Delete(cache_key)
+		}
+	}
+
 	if expireSeconds < 0 {
 		expireSeconds = 2592000
 	}
@@ -719,6 +740,11 @@ Do:
 	} else {
 		var qr QRCode
 		if err := json.Unmarshal(data, &qr); err == nil {
+
+			if c.cache != nil {
+				c.cache.Put(cache_key, data, int64(expireSeconds))
+			}
+			
 			return qr, nil
 		}
 	}
@@ -751,8 +777,8 @@ Do:
 }
 
 //用二维码换来的图片链接
-func GetQrCodePictureLink(ticket string)string{
-	return fmt.Sprintf(fmt_qrcode_picture,ticket)
+func GetQrCodePictureLink(ticket string) string {
+	return fmt.Sprintf(fmt_qrcode_picture, ticket)
 }
 
 //服务号Only==================End==================
