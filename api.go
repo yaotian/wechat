@@ -87,6 +87,10 @@ func NewWeixinMpApiClient(appid string, appsecret string) (*WeixinMpApiClient, e
 	}
 }
 
+func (c *WeixinMpApiClient) GetAppId() (string) {
+	return c.appid
+}
+
 func (c *WeixinMpApiClient) GetToken() (string, error) {
 	cache_key := c.appid + "." + default_token_key
 	beego.Info("star to get token")
