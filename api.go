@@ -370,6 +370,45 @@ Do:
 	return nil
 }
 
+
+//没有cache的方式获得subscriber信息。因为关注后要立刻获得这样的信息
+func (c *WeixinMpApiClient) GetSubscriberNoCache(oid string, subscriber *entry.Subscriber) error {
+	i := 0
+Do:
+	token, err := c.GetToken()
+	if err != nil {
+		return err
+	}
+
+	var reponse *http.Response
+	reponse, err = http.Get(fmt.Sprintf(fmt_userinfo_url, token, oid))
+	if err != nil {
+		return err
+	}
+
+	defer reponse.Body.Close()
+
+	data, _ := ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data)
+	if err != nil {
+
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+
+		return err
+	}
+
+	if err = json.Unmarshal(data, subscriber); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
 func (c *WeixinMpApiClient) ListSubscribers() error {
 	return nil
 }
