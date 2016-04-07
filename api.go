@@ -56,6 +56,11 @@ var (
 
 	fmt_template_send_url string = "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=%s"
 
+	//add template
+	fmt_template_add_template_url string = "https://api.weixin.qq.com/cgi-bin/template/api_add_template?access_token=%s"
+	fmt_all_template_url          string = "https://api.weixin.qq.com/cgi-bin/template/get_all_private_template?access_token=%s"
+	fmt_set_industry_url          string = "https://api.weixin.qq.com/cgi-bin/template/api_set_industry?access_token=%s"
+
 	//带参数的二维码
 	fmt_qrcode_url     string = "https://api.weixin.qq.com/cgi-bin/qrcode/create?access_token=%s"
 	fmt_qrcode_picture string = "https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=%s"
@@ -87,7 +92,7 @@ func NewWeixinMpApiClient(appid string, appsecret string) (*WeixinMpApiClient, e
 	}
 }
 
-func (c *WeixinMpApiClient) GetAppId() (string) {
+func (c *WeixinMpApiClient) GetAppId() string {
 	return c.appid
 }
 
@@ -370,7 +375,6 @@ Do:
 	return nil
 }
 
-
 //没有cache的方式获得subscriber信息。因为关注后要立刻获得这样的信息
 func (c *WeixinMpApiClient) GetSubscriberNoCache(oid string, subscriber *entry.Subscriber) error {
 	i := 0
@@ -407,7 +411,6 @@ Do:
 
 	return nil
 }
-
 
 func (c *WeixinMpApiClient) ListSubscribers() error {
 	return nil
@@ -507,6 +510,7 @@ func (c *WeixinMpApiClient) Post(url string, json []byte) error {
 }
 
 func (c *WeixinMpApiClient) PostForData(url string, json []byte) (err error, data []byte) {
+	beego.Debug(string(json))
 	reponse, err := http.Post(url, "text/json", bytes.NewBuffer(json))
 	if err != nil {
 		return
@@ -731,6 +735,89 @@ Do:
 }
 
 //发送模板消息end
+type Template struct {
+	TemplateId string `json:"template_id"`
+	Title      string `json:"title"`
+}
+
+type TemplateList struct {
+	Templates []*Template `json:"template_list"`
+}
+
+func (c *WeixinMpApiClient) SetTemplateIndustry(industry1, industry2 int) (err error) {
+	i := 0
+Do:
+	token, err := c.GetToken()
+	if err != nil {
+		return err
+	}
+	msg := []byte(fmt.Sprintf(`{"industry_id1":"%d","industry_id2":"%d"}`, industry1, industry2))
+	if err = c.Post(fmt.Sprintf(fmt_set_industry_url, token), msg); err != nil {
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+	}
+	return
+}
+
+func (c *WeixinMpApiClient) GetTemplateList() (list TemplateList, err error) {
+	i := 0
+Do:
+	token, err := c.GetToken()
+	if err != nil {
+		return
+	}
+
+	var reponse *http.Response
+	reponse, err = http.Get(fmt.Sprintf(fmt_all_template_url, token))
+	if err != nil {
+		return
+	}
+
+	defer reponse.Body.Close()
+
+	data, _ := ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data)
+	if err != nil {
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+
+		return
+	}
+	beego.Debug(string(data))
+	if err = json.Unmarshal(data, &list); err != nil {
+		return
+	}
+	return
+}
+
+func (c *WeixinMpApiClient) AddTemplate(template_id_short string) (template_id string, err error) {
+	i := 0
+Do:
+	token, err := c.GetToken()
+	if err != nil {
+		return
+	}
+
+	if err, data := c.PostForData(fmt.Sprintf(fmt_template_add_template_url, token), []byte(`{"template_id_short":"`+template_id_short+`"}`)); err != nil {
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+	} else {
+		var tpl Template
+		if err := json.Unmarshal(data, &tpl); err == nil {
+			return tpl.TemplateId, nil
+		}
+	}
+	return
+}
 
 /* ----------------- 带参数的二维码 ----------------- */
 type QRCode struct {
@@ -787,7 +874,7 @@ Do:
 			if c.cache != nil {
 				c.cache.Put(cache_key, data, int64(expireSeconds))
 			}
-			
+
 			return qr, nil
 		}
 	}
