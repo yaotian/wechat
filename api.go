@@ -30,6 +30,9 @@ var (
 	//开发者可通过OpenID来获取用户基本信息
 	fmt_userinfo_url string = "https://api.weixin.qq.com/cgi-bin/user/info?access_token=%s&openid=%s&lang=zh_CN"
 
+	//所有关注用户的OpenId列表
+	fmt_user_list_url string = "https://api.weixin.qq.com/cgi-bin/user/get?access_token=%s&next_openid=%s"
+
 	//上传下传媒体信息
 	fmt_upload_media_url   string = "http://file.api.weixin.qq.com/cgi-bin/media/upload?access_token=%s&type=%s"
 	fmt_download_media_url string = "http://file.api.weixin.qq.com/cgi-bin/media/get?access_token=%s&media_id=%s"
@@ -617,6 +620,63 @@ func (c *WeixinMpApiClient) SearchGroup() error {
 }
 func (c *WeixinMpApiClient) MovetoGroup() error {
 	return nil
+}
+
+// 获取用户列表返回的数据结构
+type ListResult struct {
+	TotalCount int `json:"total"` // 关注该公众账号的总用户数
+	ItemCount  int `json:"count"` // 拉取的OPENID个数, 最大值为10000
+
+	Data struct {
+		OpenIdList []string `json:"openid,omitempty"`
+	} `json:"data"` // 列表数据, OPENID的列表
+
+	// 拉取列表的最后一个用户的OPENID, 如果 next_openid == "" 则表示没有了用户数据
+	NextOpenId string `json:"next_openid"`
+}
+
+//关注公众号的用户列表
+func (c *WeixinMpApiClient) GetOpenIds(openIds *[]string, nextOpenId string) (err error) {
+	i := 0
+Do:
+	token, err := c.GetToken()
+	if err != nil {
+		return
+	}
+
+	var reponse *http.Response
+	reponse, err = http.Get(fmt.Sprintf(fmt_user_list_url, token, nextOpenId))
+	if err != nil {
+		return
+	}
+
+	defer reponse.Body.Close()
+
+	data, _ := ioutil.ReadAll(reponse.Body)
+	err = checkJSError(data)
+	if err != nil {
+
+		if i == 0 {
+			i = i + 1
+			c.CleanTokenCache()
+			goto Do
+		}
+
+		return
+	}
+	var result ListResult
+	if err = json.Unmarshal(data, &result); err != nil {
+		return
+	} else {
+//		beego.Debug(result)
+		*openIds = append(*openIds, result.Data.OpenIdList...)
+
+		if result.ItemCount > 0 && (result.NextOpenId != "" && result.NextOpenId != nextOpenId) {
+			c.GetOpenIds(openIds, result.NextOpenId)
+		}
+	}
+
+	return
 }
 
 //服务号Only========================================
