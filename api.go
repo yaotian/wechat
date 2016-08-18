@@ -8,6 +8,7 @@ import (
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/cache"
 	_ "github.com/astaxie/beego/cache/redis"
+	"time"
 
 	"github.com/yaotian/wechat/entry"
 	"io/ioutil"
@@ -145,7 +146,7 @@ func (c *WeixinMpApiClient) GetToken() (string, error) {
 
 	if c.cache != nil {
 		beego.Info("set the token to cache ", tr.Token, int64(tr.Expires_in-100))
-		c.cache.Put(cache_key, tr.Token, int64(tr.Expires_in-100))
+		c.cache.Put(cache_key, tr.Token, time.Second*time.Duration(tr.Expires_in-100))
 	}
 
 	return tr.Token, nil
@@ -205,7 +206,7 @@ Do:
 	jsapiTicket := ti.Ticket
 
 	if c.cache != nil {
-		c.cache.Put(cache_key_jsticket, jsapiTicket, int64(ti.Expires_in-100))
+		c.cache.Put(cache_key_jsticket, jsapiTicket, time.Second*time.Duration(ti.Expires_in-100))
 	}
 
 	return jsapiTicket, nil
@@ -668,7 +669,7 @@ Do:
 	if err = json.Unmarshal(data, &result); err != nil {
 		return
 	} else {
-//		beego.Debug(result)
+		//		beego.Debug(result)
 		*openIds = append(*openIds, result.Data.OpenIdList...)
 
 		if result.ItemCount > 0 && (result.NextOpenId != "" && result.NextOpenId != nextOpenId) {
@@ -932,7 +933,7 @@ Do:
 		if err := json.Unmarshal(data, &qr); err == nil {
 
 			if c.cache != nil {
-				c.cache.Put(cache_key, data, int64(expireSeconds))
+				c.cache.Put(cache_key, data, time.Second*time.Duration(expireSeconds))
 			}
 
 			return qr, nil
