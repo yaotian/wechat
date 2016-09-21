@@ -145,7 +145,6 @@ func (c *WeixinMpApiClient) GetToken() (string, error) {
 	}
 
 	if c.cache != nil {
-		beego.Info("set the token to cache ", tr.Token, int64(tr.Expires_in-100))
 		c.cache.Put(cache_key, tr.Token, time.Second*time.Duration(tr.Expires_in-100))
 	}
 
